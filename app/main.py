@@ -343,6 +343,156 @@ def parse_spotify_url(url):
     return m.group(1), m.group(2)
 
 # ──────────────────────────────────────────────
+# Spotify Web API (with Client Credentials)
+# ──────────────────────────────────────────────
+
+SPOTIFY_CLIENT_ID = os.environ.get('SPOTIFY_CLIENT_ID', '')
+SPOTIFY_CLIENT_SECRET = os.environ.get('SPOTIFY_CLIENT_SECRET', '')
+_spotify_token = None
+_spotify_token_expires = 0
+
+def get_spotify_token():
+    global _spotify_token, _spotify_token_expires
+    if _spotify_token and time.time() < _spotify_token_expires - 60:
+        return _spotify_token
+    if not SPOTIFY_CLIENT_ID or not SPOTIFY_CLIENT_SECRET:
+        return None
+    try:
+        r = requests.post('https://accounts.spotify.com/api/token', data={
+            'grant_type': 'client_credentials',
+            'client_id': SPOTIFY_CLIENT_ID,
+            'client_secret': SPOTIFY_CLIENT_SECRET,
+        }, timeout=10)
+        if r.status_code == 200:
+            data = r.json()
+            _spotify_token = data['access_token']
+            _spotify_token_expires = time.time() + data.get('expires_in', 3600)
+            return _spotify_token
+    except Exception:
+        pass
+    return None
+
+def spotify_api_get(url):
+    token = get_spotify_token()
+    if not token:
+        return None
+    r = requests.get(url, headers={'Authorization': f'Bearer {token}'}, timeout=15)
+    if r.status_code == 200:
+        return r.json()
+    return None
+
+def fetch_spotify_playlist_webapi(content_type, playlist_id):
+    ck = cache_key('webapi', content_type, playlist_id)
+    cached = cache_get(ck)
+    if cached:
+        return cached
+
+    if content_type == 'album':
+        data = spotify_api_get(f'https://api.spotify.com/v1/albums/{playlist_id}')
+        if not data:
+            return None
+        name = data.get('name', 'Unknown')
+        image_url = data.get('images', [{}])[0].get('url', '') if data.get('images') else ''
+        raw_tracks = data.get('tracks', {}).get('items', [])
+        tracks = []
+        for i, item in enumerate(raw_tracks):
+            t = item.get('track') or item
+            if not t or not t.get('id'):
+                continue
+            artists = [a.get('name', '') for a in t.get('artists', [])]
+            album_images = t.get('album', {}).get('images', [])
+            track_image = album_images[0].get('url', '') if album_images else image_url
+            tracks.append({
+                'index': i + 1,
+                'id': t['id'],
+                'uri': t.get('uri', ''),
+                'title': t.get('name', 'Unknown'),
+                'artist': ', '.join(artists) if artists else 'Unknown',
+                'duration_ms': t.get('duration_ms', 0),
+                'preview_url': t.get('preview_url', ''),
+                'image_url': track_image,
+                'url': f'https://open.spotify.com/track/{t["id"]}',
+            })
+        result = {
+            'type': 'album',
+            'id': playlist_id,
+            'name': name,
+            'image_url': image_url,
+            'track_count': len(tracks),
+            'tracks': tracks,
+            'batch_limit': load_app_config().get('batch_limit', 500),
+        }
+        cache_set(ck, result, ttl=3600)
+        return result
+
+    if content_type == 'playlist':
+        data = spotify_api_get(f'https://api.spotify.com/v1/playlists/{playlist_id}')
+        if not data:
+            return None
+        name = data.get('name', 'Unknown')
+        image_url = data.get('images', [{}])[0].get('url', '') if data.get('images') else ''
+        raw_items = data.get('tracks', {}).get('items', [])
+        tracks = []
+        for i, item in enumerate(raw_items):
+            t = item.get('track') or item
+            if not t or not t.get('id'):
+                continue
+            artists = [a.get('name', '') for a in t.get('artists', [])]
+            album_images = t.get('album', {}).get('images', [])
+            track_image = album_images[0].get('url', '') if album_images else image_url
+            tracks.append({
+                'index': i + 1,
+                'id': t['id'],
+                'uri': t.get('uri', ''),
+                'title': t.get('name', 'Unknown'),
+                'artist': ', '.join(artists) if artists else 'Unknown',
+                'duration_ms': t.get('duration_ms', 0),
+                'preview_url': t.get('preview_url', ''),
+                'image_url': track_image,
+                'url': f'https://open.spotify.com/track/{t["id"]}',
+            })
+
+        # Paginate if more tracks
+        next_url = data.get('tracks', {}).get('next')
+        while next_url and len(tracks) < 10000:
+            page = spotify_api_get(next_url)
+            if not page or not page.get('items'):
+                break
+            for item in page['items']:
+                t = item.get('track') or item
+                if not t or not t.get('id'):
+                    continue
+                artists = [a.get('name', '') for a in t.get('artists', [])]
+                album_images = t.get('album', {}).get('images', [])
+                track_image = album_images[0].get('url', '') if album_images else image_url
+                tracks.append({
+                    'index': len(tracks) + 1,
+                    'id': t['id'],
+                    'uri': t.get('uri', ''),
+                    'title': t.get('name', 'Unknown'),
+                    'artist': ', '.join(artists) if artists else 'Unknown',
+                    'duration_ms': t.get('duration_ms', 0),
+                    'preview_url': t.get('preview_url', ''),
+                    'image_url': track_image,
+                    'url': f'https://open.spotify.com/track/{t["id"]}',
+                })
+            next_url = page.get('next')
+
+        result = {
+            'type': 'playlist',
+            'id': playlist_id,
+            'name': name,
+            'image_url': image_url,
+            'track_count': len(tracks),
+            'tracks': tracks,
+            'batch_limit': load_app_config().get('batch_limit', 500),
+        }
+        cache_set(ck, result, ttl=3600)
+        return result
+
+    return None
+
+# ──────────────────────────────────────────────
 # Spotify Metadata via Embed API (no auth needed)
 # ──────────────────────────────────────────────
 
