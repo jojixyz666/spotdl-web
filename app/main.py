@@ -155,6 +155,8 @@ DEFAULT_APP_CONFIG = {
     'batch_limit': 500,
     'max_concurrent_downloads': 5,
     'require_approval': True,
+    'audio_format': 'mp3',
+    'bitrate': '128k',
 }
 
 def load_app_config():
@@ -540,11 +542,23 @@ def run_download(download_id, spotify_url, user_id, title, artist, image_url):
     c.execute('UPDATE downloads SET status = %s WHERE id = %s', ('processing', download_id))
     conn.close()
 
+    cfg = load_app_config()
+    audio_format = cfg.get('audio_format', 'mp3')
+    bitrate = cfg.get('bitrate', '128k')
+
     output_dir = os.path.join(app.config['DOWNLOAD_FOLDER'], str(user_id))
     os.makedirs(output_dir, exist_ok=True)
 
     safe_name = f'{sanitize_filename(artist)} - {sanitize_filename(title)}'
     output_template = os.path.join(output_dir, f'{safe_name}.%(ext)s')
+
+    bitrate_args = []
+    if bitrate == 'disable':
+        bitrate_args = ['--bitrate', 'disable']
+    elif bitrate == 'auto':
+        bitrate_args = ['--bitrate', 'auto']
+    else:
+        bitrate_args = ['--audio-quality', bitrate.replace('k', '')]
 
     # Strategy 1: Try YouTube with multiple player clients
     clients = ['web_creator', 'ios', 'mweb', 'tv']
@@ -554,8 +568,8 @@ def run_download(download_id, spotify_url, user_id, title, artist, image_url):
                 YTDLP_BIN,
                 f'ytsearch1:{artist} - {title} official audio',
                 '--extract-audio',
-                '--audio-format', 'mp3',
-                '--audio-quality', '0',
+                '--audio-format', audio_format,
+                *bitrate_args,
                 '--output', output_template,
                 '--no-playlist',
                 '--no-overwrites',
@@ -587,7 +601,8 @@ def run_download(download_id, spotify_url, user_id, title, artist, image_url):
             YTDLP_BIN,
             f'scsearch1:{artist} - {title}',
             '--extract-audio',
-            '--audio-format', 'mp3',
+            '--audio-format', audio_format,
+            *bitrate_args,
             '--output', sc_template,
             '--no-playlist',
             '--ffmpeg-location', FFMPEG_BIN,
@@ -755,12 +770,24 @@ def run_batch_download(download_id, spotify_url, user_id, title, artist, image_u
     c.execute('UPDATE downloads SET status = %s WHERE id = %s', ('processing', download_id))
     conn.close()
 
+    cfg = load_app_config()
+    audio_format = cfg.get('audio_format', 'mp3')
+    bitrate = cfg.get('bitrate', '128k')
+
     batch_dir = os.path.join(app.config['DOWNLOAD_FOLDER'], str(user_id), f'batch_{batch_id}')
     os.makedirs(batch_dir, exist_ok=True)
 
     safe_name = f'{sanitize_filename(artist)} - {sanitize_filename(title)}'
     output_template = os.path.join(batch_dir, f'{safe_name}.%(ext)s')
-    final_mp3 = os.path.join(batch_dir, f'{safe_name}.mp3')
+    final_output = os.path.join(batch_dir, f'{safe_name}.{audio_format}')
+
+    bitrate_args = []
+    if bitrate == 'disable':
+        bitrate_args = ['--bitrate', 'disable']
+    elif bitrate == 'auto':
+        bitrate_args = ['--bitrate', 'auto']
+    else:
+        bitrate_args = ['--audio-quality', bitrate.replace('k', '')]
 
     # Strategy 1: YouTube
     clients = ['web_creator', 'ios', 'mweb', 'tv']
@@ -769,17 +796,18 @@ def run_batch_download(download_id, spotify_url, user_id, title, artist, image_u
             cmd = [
                 YTDLP_BIN,
                 f'ytsearch1:{artist} - {title} official audio',
-                '--extract-audio', '--audio-format', 'mp3', '--audio-quality', '0',
+                '--extract-audio', '--audio-format', audio_format,
+                *bitrate_args,
                 '--output', output_template, '--no-playlist', '--no-overwrites',
                 '--ffmpeg-location', FFMPEG_BIN, '--quiet', '--no-warnings',
                 '--extractor-args', f'youtube:player_client={client}',
             ]
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
-            if result.returncode == 0 and os.path.exists(final_mp3):
+            if result.returncode == 0 and os.path.exists(final_output):
                 conn = get_db()
                 c = conn.cursor()
                 c.execute('UPDATE downloads SET status = %s, filename = %s, message = %s WHERE id = %s',
-                          ('completed', f'{safe_name}.mp3', 'Downloaded.', download_id))
+                          ('completed', f'{safe_name}.{audio_format}', 'Downloaded.', download_id))
                 conn.close()
                 return
         except Exception:
@@ -789,16 +817,17 @@ def run_batch_download(download_id, spotify_url, user_id, title, artist, image_u
     try:
         cmd = [
             YTDLP_BIN, f'scsearch1:{artist} - {title}',
-            '--extract-audio', '--audio-format', 'mp3',
+            '--extract-audio', '--audio-format', audio_format,
+            *bitrate_args,
             '--output', output_template, '--no-playlist',
             '--ffmpeg-location', FFMPEG_BIN, '--quiet', '--no-warnings',
         ]
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
-        if result.returncode == 0 and os.path.exists(final_mp3):
+        if result.returncode == 0 and os.path.exists(final_output):
             conn = get_db()
             c = conn.cursor()
             c.execute('UPDATE downloads SET status = %s, filename = %s, message = %s WHERE id = %s',
-                      ('completed', f'{safe_name}.mp3', 'Downloaded from SoundCloud.', download_id))
+                      ('completed', f'{safe_name}.{audio_format}', 'Downloaded from SoundCloud.', download_id))
             conn.close()
             return
     except Exception:
@@ -810,7 +839,7 @@ def run_batch_download(download_id, spotify_url, user_id, title, artist, image_u
         try:
             r = requests.get(metadata['preview_url'], timeout=15)
             if r.status_code == 200 and len(r.content) > 10000:
-                with open(final_mp3, 'wb') as f:
+                with open(final_output, 'wb') as f:
                     f.write(r.content)
                 conn = get_db()
                 c = conn.cursor()
@@ -1357,6 +1386,10 @@ def api_admin_settings():
         except (ValueError, TypeError):
             pass
         app_config['require_approval'] = bool(data.get('require_approval', app_config.get('require_approval', True)))
+        if 'audio_format' in data:
+            app_config['audio_format'] = data['audio_format']
+        if 'bitrate' in data:
+            app_config['bitrate'] = data['bitrate']
         save_app_config(app_config)
         return jsonify({'ok': True, 'config': app_config})
     return jsonify({'config': load_app_config()})

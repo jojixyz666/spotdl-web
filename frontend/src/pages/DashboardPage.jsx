@@ -18,6 +18,8 @@ export default function DashboardPage() {
   const [downloadsLoading, setDownloadsLoading] = useState(false)
   const previewAudio = useRef(null)
   const [playingId, setPlayingId] = useState(null)
+  const [audioFormat, setAudioFormat] = useState('mp3')
+  const [bitrate, setBitrate] = useState('128k')
 
   const loadDownloads = useCallback(async (p = 1, append = false) => {
     setDownloadsLoading(true)
@@ -135,6 +137,30 @@ export default function DashboardPage() {
               {loading ? <Loader2 size={18} className="animate-spin-slow" /> : <><Search size={18} /> Search</>}
             </motion.button>
           </div>
+          <div className="flex gap-4 mt-4">
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-text-muted font-medium uppercase tracking-wider">Format</label>
+              <select value={audioFormat} onChange={e => setAudioFormat(e.target.value)} className="input py-1.5 px-3 text-sm">
+                <option value="mp3">MP3</option>
+                <option value="flac">FLAC</option>
+                <option value="m4a">M4A</option>
+                <option value="opus">OPUS</option>
+                <option value="ogg">OGG</option>
+                <option value="wav">WAV</option>
+              </select>
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-text-muted font-medium uppercase tracking-wider">Bitrate</label>
+              <select value={bitrate} onChange={e => setBitrate(e.target.value)} className="input py-1.5 px-3 text-sm">
+                <option value="disable">Original (No Convert)</option>
+                <option value="auto">Auto</option>
+                <option value="128k">128 kbps</option>
+                <option value="192k">192 kbps</option>
+                <option value="256k">256 kbps</option>
+                <option value="320k">320 kbps</option>
+              </select>
+            </div>
+          </div>
         </div>
       </motion.div>
 
@@ -149,10 +175,10 @@ export default function DashboardPage() {
             transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
           >
             {isTrack && (
-              <TrackPreview data={preview} onDownload={handleDownload} playingId={playingId} togglePreview={togglePreview} />
+              <TrackPreview data={preview} onDownload={handleDownload} playingId={playingId} togglePreview={togglePreview} audioFormat={audioFormat} bitrate={bitrate} />
             )}
             {isPlaylist && (
-              <PlaylistPreview data={preview} onDownload={handleDownload} onBatch={handleBatchDownload} playingId={playingId} togglePreview={togglePreview} />
+              <PlaylistPreview data={preview} onDownload={handleDownload} onBatch={handleBatchDownload} playingId={playingId} togglePreview={togglePreview} audioFormat={audioFormat} bitrate={bitrate} />
             )}
           </motion.div>
         )}
@@ -191,7 +217,7 @@ export default function DashboardPage() {
   )
 }
 
-function TrackPreview({ data, onDownload, playingId, togglePreview }) {
+function TrackPreview({ data, onDownload, playingId, togglePreview, audioFormat, bitrate }) {
   return (
     <div className="card overflow-hidden">
       <div className="flex flex-col sm:flex-row items-center gap-5 p-6">
@@ -205,6 +231,7 @@ function TrackPreview({ data, onDownload, playingId, togglePreview }) {
           {data.duration_ms > 0 && (
             <p className="text-text-muted text-sm mt-1">{formatDuration(data.duration_ms)}</p>
           )}
+          <p className="text-text-muted text-xs mt-1">Format: {audioFormat.toUpperCase()} | Bitrate: {bitrate === 'disable' ? 'Original' : bitrate === 'auto' ? 'Auto' : bitrate}</p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           {data.preview_url && (
@@ -214,7 +241,7 @@ function TrackPreview({ data, onDownload, playingId, togglePreview }) {
             </button>
           )}
           <motion.button onClick={() => onDownload(data)} whileTap={{ scale: 0.95 }} className="btn-primary">
-            <Download size={16} /> Download MP3
+            <Download size={16} /> Download {audioFormat.toUpperCase()}
           </motion.button>
         </div>
       </div>
@@ -229,7 +256,7 @@ function TrackPreview({ data, onDownload, playingId, togglePreview }) {
   )
 }
 
-function PlaylistPreview({ data, onDownload, onBatch, playingId, togglePreview }) {
+function PlaylistPreview({ data, onDownload, onBatch, playingId, togglePreview, audioFormat, bitrate }) {
   const [selected, setSelected] = useState(new Set())
   const tracks = data.tracks || []
   const limit = data.batch_limit || 500
@@ -265,6 +292,7 @@ function PlaylistPreview({ data, onDownload, onBatch, playingId, togglePreview }
           <p className="text-text-secondary text-sm mt-0.5">
             {tracks.length} tracks
             {tracks.length > limit && <span className="text-amber-400 ml-2">(limit: {limit})</span>}
+            <span className="text-text-muted ml-2">| {audioFormat.toUpperCase()} / {bitrate === 'disable' ? 'Original' : bitrate}</span>
           </p>
         </div>
       </div>
@@ -292,7 +320,7 @@ function PlaylistPreview({ data, onDownload, onBatch, playingId, togglePreview }
           }}
           className="btn-primary btn-sm"
         >
-          <Download size={14} /> Download Selected
+          <Download size={14} /> Download Selected ({audioFormat.toUpperCase()})
         </motion.button>
         <motion.button
           whileTap={{ scale: 0.95 }}
