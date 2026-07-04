@@ -196,7 +196,6 @@ def generate_csrf_token():
 
 app.jinja_env.globals['csrf_token'] = generate_csrf_token
 
-
 def validate_csrf(f):
     @wraps(f)
     def decorated(*args, **kwargs):
@@ -210,7 +209,6 @@ def validate_csrf(f):
             abort(403)
         return f(*args, **kwargs)
     return decorated
-
 
 @app.after_request
 def set_security_headers(response):
@@ -230,7 +228,6 @@ def set_security_headers(response):
     )
     return response
 
-
 @app.before_request
 def make_session_permanent():
     session.permanent = True
@@ -243,7 +240,6 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
 
-
 class User(UserMixin):
     def __init__(self, id, username, role='user'):
         self.id = id
@@ -254,10 +250,8 @@ class User(UserMixin):
     def is_admin(self):
         return self.role == 'admin'
 
-
 def get_db():
     return mysql.connector.connect(**DB_CONFIG)
-
 
 # Cached DB connection per request
 @app.teardown_appcontext
@@ -269,14 +263,11 @@ def close_db(exception):
         except Exception:
             pass
 
-
 def is_admin_user():
     return current_user.is_authenticated and getattr(current_user, 'is_admin', False)
 
-
 def hash_password(password):
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-
 
 def check_password(password, hashed):
     try:
@@ -284,16 +275,13 @@ def check_password(password, hashed):
     except (ValueError, TypeError):
         return False
 
-
 def sanitize_filename(name):
     name = os.path.basename(name)
     name = re.sub(r'[^\w\-_. ]', '', name)
     return name.strip()[:200] or 'download'
 
-
 def sanitize_username(username):
     return re.sub(r'[^a-zA-Z0-9_.-]', '', username)
-
 
 SPOTIFY_URL_RE = re.compile(
     r'(?:https?://)?(?:open\.spotify\.com|spotify\.link)/(track|album|playlist|artist)/([a-zA-Z0-9]+)'
@@ -304,7 +292,6 @@ def parse_spotify_url(url):
     if not m:
         return None, None
     return m.group(1), m.group(2)
-
 
 # ──────────────────────────────────────────────
 # Spotify Metadata via Embed API (no auth needed)
@@ -359,7 +346,6 @@ def fetch_spotify_metadata(url):
         return result
     except Exception:
         return None
-
 
 def fetch_spotify_playlist_metadata(url):
     content_type, playlist_id = parse_spotify_url(url)
@@ -425,7 +411,6 @@ def fetch_spotify_playlist_metadata(url):
         return result
     except Exception:
         return None
-
 
 # ──────────────────────────────────────────────
 # Init DB
@@ -526,7 +511,6 @@ def init_db():
 
     conn.close()
 
-
 # ──────────────────────────────────────────────
 # Auth
 # ──────────────────────────────────────────────
@@ -542,424 +526,9 @@ def load_user(user_id):
         return User(user['id'], user['username'], user.get('role', 'user'))
     return None
 
-
 @app.route('/')
 def index():
-    if current_user.is_authenticated:
-        return redirect(url_for('dashboard'))
-    return redirect(url_for('login'))
-
-
-@app.route('/login', methods=['GET', 'POST'])
-@limiter.limit("10/minute")
-def login():
-    if current_user.is_authenticated:
-        return redirect(url_for('dashboard'))
-    if request.method == 'POST':
-        token = request.form.get('_csrf_token')
-        if not token or token != session.get('_csrf_token'):
-            abort(403)
-        username = request.form.get('username', '').strip()
-        password = request.form.get('password', '')
-        if not username or not password:
-            flash('Please fill in all fields.', 'danger')
-            return redirect(url_for('login'))
-        conn = get_db()
-        c = conn.cursor(dictionary=True)
-        c.execute('SELECT id, username, password, role, is_approved FROM users WHERE username = %s', (username,))
-        user = c.fetchone()
-        conn.close()
-        if user and check_password(password, user['password']):
-            if not user['is_approved']:
-                flash('Your account is pending admin approval.', 'warning')
-                return redirect(url_for('login'))
-            login_user(User(user['id'], user['username'], user.get('role', 'user')))
-            flash('Login successful!', 'success')
-            return redirect(url_for('dashboard'))
-        flash('Invalid username or password.', 'danger')
-    return render_template('login.html')
-
-
-@app.route('/register', methods=['GET', 'POST'])
-@limiter.limit("5/minute")
-def register():
-    if current_user.is_authenticated:
-        return redirect(url_for('dashboard'))
-    if request.method == 'POST':
-        token = request.form.get('_csrf_token')
-        if not token or token != session.get('_csrf_token'):
-            abort(403)
-        username = request.form.get('username', '').strip()
-        password = request.form.get('password', '')
-        confirm = request.form.get('confirm_password', '')
-        if not username or not password or not confirm:
-            flash('Please fill in all fields.', 'danger')
-            return render_template('register.html')
-        clean_username = sanitize_username(username)
-        if clean_username != username or len(username) < 3:
-            flash('Username: 3-80 chars, letters/numbers/dots/dashes/underscores only.', 'danger')
-            return render_template('register.html')
-        if len(password) < 6:
-            flash('Password must be at least 6 characters.', 'danger')
-            return render_template('register.html')
-        if password != confirm:
-            flash('Passwords do not match.', 'danger')
-            return render_template('register.html')
-        conn = get_db()
-        c = conn.cursor(dictionary=True)
-        c.execute('SELECT id FROM users WHERE username = %s', (clean_username,))
-        if c.fetchone():
-            conn.close()
-            flash('Username already exists.', 'danger')
-            return render_template('register.html')
-        hashed = hash_password(password)
-        c.execute(
-            'INSERT INTO users (username, password, role, is_approved) VALUES (%s, %s, %s, %s)',
-            (clean_username, hashed, 'user', 0)
-        )
-        conn.close()
-        flash('Account created! Waiting for admin approval.', 'info')
-        return redirect(url_for('login'))
-    return render_template('register.html')
-
-
-@app.route('/logout')
-@login_required
-def logout():
-    logout_user()
-    return redirect(url_for('login'))
-
-
-# ──────────────────────────────────────────────
-# Dashboard
-# ──────────────────────────────────────────────
-
-@app.route('/dashboard')
-@login_required
-def dashboard():
-    conn = get_db()
-    c = conn.cursor(dictionary=True)
-    c.execute(
-        'SELECT id, spotify_url, title, artist, image_url, filename, status, message, created_at '
-        'FROM downloads WHERE user_id = %s ORDER BY created_at DESC LIMIT 50',
-        (current_user.id,)
-    )
-    downloads = c.fetchall()
-    conn.close()
-    return render_template('dashboard.html', downloads=downloads)
-
-
-@app.route('/history')
-@login_required
-def history():
-    conn = get_db()
-    c = conn.cursor(dictionary=True)
-    c.execute(
-        'SELECT id, spotify_url, content_type, collection_name, image_url, batch_id, created_at '
-        'FROM url_history WHERE user_id = %s ORDER BY created_at DESC LIMIT 100',
-        (current_user.id,)
-    )
-    items = c.fetchall()
-    conn.close()
-    return render_template('history.html', items=items)
-
-
-@app.route('/history/<int:history_id>')
-@login_required
-def history_detail(history_id):
-    conn = get_db()
-    c = conn.cursor(dictionary=True)
-    c.execute(
-        'SELECT id, spotify_url, content_type, collection_name, image_url, track_data, batch_id, created_at '
-        'FROM url_history WHERE id = %s AND user_id = %s',
-        (history_id, current_user.id)
-    )
-    item = c.fetchone()
-    conn.close()
-
-    if not item:
-        flash('History entry not found.', 'danger')
-        return redirect(url_for('history'))
-
-    tracks = []
-    if item['track_data']:
-        try:
-            if isinstance(item['track_data'], str):
-                tracks = json.loads(item['track_data'])
-            else:
-                tracks = item['track_data']
-        except (json.JSONDecodeError, TypeError):
-            tracks = []
-
-    # Check if ZIP is available for this batch
-    zip_available = False
-    if item['batch_id']:
-        batch_dir = os.path.join(
-            app.config['DOWNLOAD_FOLDER'], str(current_user.id), f'batch_{item["batch_id"]}'
-        )
-        if os.path.isdir(batch_dir):
-            mp3s = [f for f in os.listdir(batch_dir) if f.endswith('.mp3')]
-            zip_available = len(mp3s) > 0
-
-    # Check download status for each track
-    conn = get_db()
-    c = conn.cursor(dictionary=True)
-    track_urls = [t.get('url', '') for t in tracks]
-    if track_urls:
-        placeholders = ','.join(['%s'] * len(track_urls))
-        c.execute(
-            f'SELECT spotify_url, status, filename, id FROM downloads WHERE user_id = %s AND spotify_url IN ({placeholders})',
-            [current_user.id] + track_urls
-        )
-        status_map = {row['spotify_url']: row for row in c.fetchall()}
-    else:
-        status_map = {}
-    conn.close()
-
-    for t in tracks:
-        st = status_map.get(t.get('url', ''), {})
-        t['dl_status'] = st.get('status', '')
-        t['dl_filename'] = st.get('filename', '')
-        t['dl_id'] = st.get('id', '')
-
-    return render_template('history_detail.html', item=item, tracks=tracks, zip_available=zip_available)
-
-
-# ──────────────────────────────────────────────
-# Preview API
-# ──────────────────────────────────────────────
-
-@app.route('/api/preview', methods=['POST'])
-@login_required
-@validate_csrf
-def api_preview():
-    data = request.get_json(silent=True) or {}
-    url = data.get('spotify_url', '').strip() or request.form.get('spotify_url', '').strip()
-    if not url:
-        return jsonify({'error': 'Please enter a Spotify URL.'}), 400
-
-    content_type, item_id = parse_spotify_url(url)
-    if not content_type:
-        return jsonify({'error': 'Invalid Spotify URL.'}), 400
-
-    if content_type == 'track':
-        metadata = fetch_spotify_metadata(url)
-        if not metadata:
-            return jsonify({'error': 'Could not fetch track info. Check the URL.'}), 400
-        metadata['type'] = 'track'
-        return jsonify(metadata)
-
-    if content_type in ('album', 'playlist'):
-        metadata = fetch_spotify_playlist_metadata(url)
-        if not metadata:
-            return jsonify({'error': f'Could not fetch {content_type} info. Check the URL.'}), 400
-        return jsonify(metadata)
-
-    if content_type == 'artist':
-        return jsonify({'error': 'Artist URLs not supported. Paste an album or playlist URL instead.'}), 400
-
-    return jsonify({'error': 'Unsupported Spotify URL type.'}), 400
-
-
-# ──────────────────────────────────────────────
-# Settings
-# ──────────────────────────────────────────────
-
-@app.route('/settings', methods=['GET', 'POST'])
-@login_required
-@limiter.limit("10/minute")
-def settings():
-    if request.method == 'POST':
-        token = request.form.get('_csrf_token')
-        if not token or token != session.get('_csrf_token'):
-            abort(403)
-        action = request.form.get('action')
-        if action == 'update_username':
-            new_username = sanitize_username(request.form.get('new_username', '').strip())
-            if len(new_username) < 3:
-                flash('Username must be at least 3 characters.', 'danger')
-                return redirect(url_for('settings'))
-            if not re.match(r'^[a-zA-Z0-9_.-]+$', new_username):
-                flash('Username: letters, numbers, dots, dashes, underscores only.', 'danger')
-                return redirect(url_for('settings'))
-            conn = get_db()
-            c = conn.cursor(dictionary=True)
-            c.execute('SELECT id FROM users WHERE username = %s AND id != %s', (new_username, current_user.id))
-            if c.fetchone():
-                conn.close()
-                flash('Username already taken.', 'danger')
-                return redirect(url_for('settings'))
-            c.execute('UPDATE users SET username = %s WHERE id = %s', (new_username, current_user.id))
-            conn.close()
-            current_user.username = new_username
-            flash('Username updated!', 'success')
-        elif action == 'update_password':
-            current_password = request.form.get('current_password', '')
-            new_password = request.form.get('new_password', '')
-            confirm_password = request.form.get('confirm_new_password', '')
-            conn = get_db()
-            c = conn.cursor(dictionary=True)
-            c.execute('SELECT password FROM users WHERE id = %s', (current_user.id,))
-            user = c.fetchone()
-            conn.close()
-            if not user or not check_password(current_password, user['password']):
-                flash('Current password is incorrect.', 'danger')
-                return redirect(url_for('settings'))
-            if new_password != confirm_password:
-                flash('New passwords do not match.', 'danger')
-                return redirect(url_for('settings'))
-            if len(new_password) < 6:
-                flash('New password must be at least 6 characters.', 'danger')
-                return redirect(url_for('settings'))
-            conn = get_db()
-            c = conn.cursor()
-            hashed = hash_password(new_password)
-            c.execute('UPDATE users SET password = %s WHERE id = %s', (hashed, current_user.id))
-            conn.close()
-            flash('Password updated!', 'success')
-        return redirect(url_for('settings'))
-    return render_template('settings.html')
-
-
-# ──────────────────────────────────────────────
-# Admin: User Management
-# ──────────────────────────────────────────────
-
-@app.route('/admin/users')
-@login_required
-def admin_users():
-    if not is_admin_user():
-        abort(403)
-    conn = get_db()
-    c = conn.cursor(dictionary=True)
-    c.execute('SELECT id, username, role, is_approved, created_at FROM users ORDER BY created_at DESC')
-    users = c.fetchall()
-    conn.close()
-    return render_template('admin_users.html', users=users)
-
-
-@app.route('/admin/users/approve/<int:user_id>', methods=['POST'])
-@login_required
-@validate_csrf
-def admin_approve_user(user_id):
-    if not is_admin_user(): abort(403)
-    conn = get_db()
-    c = conn.cursor()
-    c.execute('UPDATE users SET is_approved = 1 WHERE id = %s', (user_id,))
-    conn.close()
-    flash('User approved!', 'success')
-    return redirect(url_for('admin_users'))
-
-
-@app.route('/admin/users/revoke/<int:user_id>', methods=['POST'])
-@login_required
-@validate_csrf
-def admin_revoke_user(user_id):
-    if not is_admin_user(): abort(403)
-    if user_id == current_user.id:
-        flash('Cannot revoke your own access.', 'warning')
-        return redirect(url_for('admin_users'))
-    conn = get_db()
-    c = conn.cursor()
-    c.execute('UPDATE users SET is_approved = 0 WHERE id = %s', (user_id,))
-    conn.close()
-    flash('User access revoked.', 'success')
-    return redirect(url_for('admin_users'))
-
-
-@app.route('/admin/users/delete/<int:user_id>', methods=['POST'])
-@login_required
-@validate_csrf
-def admin_delete_user(user_id):
-    if not is_admin_user(): abort(403)
-    if user_id == current_user.id:
-        flash('Cannot delete your own account from here.', 'warning')
-        return redirect(url_for('admin_users'))
-    conn = get_db()
-    c = conn.cursor(dictionary=True)
-    c.execute('SELECT role FROM users WHERE id = %s', (user_id,))
-    u = c.fetchone()
-    if u and u['role'] == 'admin':
-        conn.close()
-        flash('Cannot delete another admin.', 'warning')
-        return redirect(url_for('admin_users'))
-    c.execute('DELETE FROM downloads WHERE user_id = %s', (user_id,))
-    c.execute('DELETE FROM users WHERE id = %s', (user_id,))
-    conn.close()
-    flash('User deleted.', 'success')
-    return redirect(url_for('admin_users'))
-
-
-@app.route('/admin/users/promote/<int:user_id>', methods=['POST'])
-@login_required
-@validate_csrf
-def admin_promote_user(user_id):
-    if not is_admin_user(): abort(403)
-    conn = get_db()
-    c = conn.cursor()
-    c.execute("UPDATE users SET role = 'admin' WHERE id = %s", (user_id,))
-    conn.close()
-    flash('User promoted to admin.', 'success')
-    return redirect(url_for('admin_users'))
-
-
-@app.route('/admin/users/demote/<int:user_id>', methods=['POST'])
-@login_required
-@validate_csrf
-def admin_demote_user(user_id):
-    if not is_admin_user(): abort(403)
-    if user_id == current_user.id:
-        flash('Cannot demote yourself.', 'warning')
-        return redirect(url_for('admin_users'))
-    conn = get_db()
-    c = conn.cursor()
-    c.execute("UPDATE users SET role = 'user' WHERE id = %s", (user_id,))
-    conn.close()
-    flash('User demoted.', 'success')
-    return redirect(url_for('admin_users'))
-
-
-@app.route('/admin/settings', methods=['GET', 'POST'])
-@login_required
-def admin_settings():
-    if not is_admin_user():
-        abort(403)
-
-    if request.method == 'POST':
-        token = request.form.get('_csrf_token')
-        if not token or token != session.get('_csrf_token'):
-            abort(403)
-
-        app_config = load_app_config()
-
-        batch_limit = request.form.get('batch_limit', '50').strip()
-        try:
-            batch_limit = int(batch_limit)
-            if batch_limit < 1 or batch_limit > 500:
-                raise ValueError
-        except ValueError:
-            flash('Batch limit must be between 1 and 500.', 'danger')
-            return redirect(url_for('admin_settings'))
-
-        max_downloads = request.form.get('max_concurrent_downloads', '5').strip()
-        try:
-            max_downloads = int(max_downloads)
-            if max_downloads < 1 or max_downloads > 20:
-                raise ValueError
-        except ValueError:
-            flash('Concurrent downloads must be between 1 and 20.', 'danger')
-            return redirect(url_for('admin_settings'))
-
-        app_config['batch_limit'] = batch_limit
-        app_config['max_concurrent_downloads'] = max_downloads
-        app_config['require_approval'] = request.form.get('require_approval') == 'on'
-
-        save_app_config(app_config)
-        flash('Settings updated!', 'success')
-        return redirect(url_for('admin_settings'))
-
-    return render_template('admin_settings.html', config=load_app_config())
-
+    return jsonify({'status': 'ok', 'app': 'spotdl-web', 'frontend': '/static/react/'}), 200
 
 # ──────────────────────────────────────────────
 # Download Logic (yt-dlp)
@@ -1063,11 +632,6 @@ def run_download(download_id, spotify_url, user_id, title, artist, image_url):
               ('failed', 'Download failed. Try again later.', download_id))
     conn.close()
 
-
-@app.route('/download', methods=['POST'])
-@login_required
-@validate_csrf
-@limiter.limit("20/minute")
 def submit_download():
     url = request.form.get('spotify_url', '').strip()
     title = request.form.get('title', '').strip()
@@ -1077,12 +641,12 @@ def submit_download():
 
     if not url:
         flash('Please enter a Spotify URL.', 'warning')
-        return redirect(url_for('dashboard'))
+        return jsonify({'error': 'Use API endpoints'}), 404
 
     content_type, track_id = parse_spotify_url(url)
     if not content_type or content_type != 'track':
         flash('Invalid Spotify URL.', 'warning')
-        return redirect(url_for('dashboard'))
+        return jsonify({'error': 'Use API endpoints'}), 404
 
     url = f'https://open.spotify.com/track/{track_id}'
 
@@ -1126,13 +690,8 @@ def submit_download():
     download_executor.submit(bounded_download, run_download, download_id, url, current_user.id, title, artist, image_url)
 
     flash(f'Downloading: {artist} - {title}', 'info')
-    return redirect(url_for('dashboard'))
+    return jsonify({'error': 'Use API endpoints'}), 404
 
-
-@app.route('/download/batch', methods=['POST'])
-@login_required
-@validate_csrf
-@limiter.limit("10/minute")
 def submit_batch_download():
     tracks_json = request.form.get('tracks', '[]')
     collection_name = request.form.get('collection_name', 'Download').strip()[:100]
@@ -1142,17 +701,17 @@ def submit_batch_download():
         tracks = json.loads(tracks_json)
     except (json.JSONDecodeError, TypeError):
         flash('Invalid track data.', 'danger')
-        return redirect(url_for('dashboard'))
+        return jsonify({'error': 'Use API endpoints'}), 404
 
     if not tracks:
         flash('No tracks selected.', 'warning')
-        return redirect(url_for('dashboard'))
+        return jsonify({'error': 'Use API endpoints'}), 404
 
     app_config = load_app_config()
     batch_limit = app_config.get('batch_limit', 500)
     if len(tracks) > batch_limit:
         flash(f'Maximum {batch_limit} tracks per batch.', 'warning')
-        return redirect(url_for('dashboard'))
+        return jsonify({'error': 'Use API endpoints'}), 404
 
     batch_id = secrets.token_hex(8)
     batch_dir = os.path.join(app.config['DOWNLOAD_FOLDER'], str(current_user.id), f'batch_{batch_id}')
@@ -1188,8 +747,7 @@ def submit_batch_download():
         download_executor.submit(bounded_download, run_batch_download, download_id, t_url, current_user.id, t_title, t_artist, t_image, batch_id)
 
     flash(f'Batch downloading {len(tracks)} tracks from {collection_name}...', 'info')
-    return redirect(url_for('dashboard'))
-
+    return jsonify({'error': 'Use API endpoints'}), 404
 
 def run_batch_download(download_id, spotify_url, user_id, title, artist, image_url, batch_id):
     conn = get_db()
@@ -1269,9 +827,6 @@ def run_batch_download(download_id, spotify_url, user_id, title, artist, image_u
               ('failed', 'Download failed.', download_id))
     conn.close()
 
-
-@app.route('/download/batch/<batch_id>/zip')
-@login_required
 def download_batch_zip(batch_id):
     if not re.match(r'^[a-f0-9]{16}$', batch_id):
         abort(400)
@@ -1279,12 +834,12 @@ def download_batch_zip(batch_id):
     batch_dir = os.path.join(app.config['DOWNLOAD_FOLDER'], str(current_user.id), f'batch_{batch_id}')
     if not os.path.isdir(batch_dir):
         flash('Batch not found.', 'danger')
-        return redirect(url_for('dashboard'))
+        return jsonify({'error': 'Use API endpoints'}), 404
 
     mp3_files = [f for f in os.listdir(batch_dir) if f.endswith('.mp3')]
     if not mp3_files:
         flash('No completed downloads in this batch yet.', 'warning')
-        return redirect(url_for('dashboard'))
+        return jsonify({'error': 'Use API endpoints'}), 404
 
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
@@ -1301,9 +856,6 @@ def download_batch_zip(batch_id):
         download_name=f'spotdl_batch_{batch_id[:8]}.zip'
     )
 
-
-@app.route('/download/batch/<batch_id>/status')
-@login_required
 def batch_status(batch_id):
     if not re.match(r'^[a-f0-9]{16}$', batch_id):
         return jsonify({'error': 'Invalid batch ID'}), 400
@@ -1327,9 +879,6 @@ def batch_status(batch_id):
         'downloads': rows,
     })
 
-
-@app.route('/download/<int:download_id>')
-@login_required
 def download_file(download_id):
     conn = get_db()
     c = conn.cursor(dictionary=True)
@@ -1342,17 +891,17 @@ def download_file(download_id):
 
     if not d:
         flash('Download not found.', 'danger')
-        return redirect(url_for('dashboard'))
+        return jsonify({'error': 'Use API endpoints'}), 404
 
     if d['status'] != 'completed' or not d['filename']:
         flash('Download is not ready yet.', 'warning')
-        return redirect(url_for('dashboard'))
+        return jsonify({'error': 'Use API endpoints'}), 404
 
     user_dir = os.path.join(app.config['DOWNLOAD_FOLDER'], str(current_user.id))
     filename = sanitize_filename(d['filename'])
     if not filename:
         flash('Invalid file.', 'danger')
-        return redirect(url_for('dashboard'))
+        return jsonify({'error': 'Use API endpoints'}), 404
 
     # Check root user dir first
     filepath = os.path.join(user_dir, filename)
@@ -1371,12 +920,8 @@ def download_file(download_id):
                     return send_from_directory(batch_path, filename, as_attachment=True)
 
     flash('File no longer exists.', 'danger')
-    return redirect(url_for('dashboard'))
+    return jsonify({'error': 'Use API endpoints'}), 404
 
-
-@app.route('/delete/<int:download_id>', methods=['POST'])
-@login_required
-@validate_csrf
 def delete_download(download_id):
     conn = get_db()
     c = conn.cursor(dictionary=True)
@@ -1398,11 +943,8 @@ def delete_download(download_id):
         c.execute('DELETE FROM downloads WHERE id = %s', (download_id,))
     conn.close()
     flash('Download deleted.', 'success')
-    return redirect(url_for('dashboard'))
+    return jsonify({'error': 'Use API endpoints'}), 404
 
-
-@app.route('/status/<int:download_id>')
-@login_required
 def download_status(download_id):
     conn = get_db()
     c = conn.cursor(dictionary=True)
@@ -1415,7 +957,6 @@ def download_status(download_id):
     if d:
         return jsonify(d)
     return jsonify({'error': 'Not found'}), 404
-
 
 # ──────────────────────────────────────────────
 # SSE: Download Progress
@@ -1432,7 +973,6 @@ def sse_broadcast(user_id, event, data):
             q.put_nowait(msg)
         except queue.Full:
             pass
-
 
 @app.route('/api/events')
 @login_required
@@ -1462,7 +1002,6 @@ def sse_events():
     return app.response_class(generate(), mimetype='text/event-stream',
                               headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'})
 
-
 # ──────────────────────────────────────────────
 # JSON API Routes (for React frontend)
 # ──────────────────────────────────────────────
@@ -1470,7 +1009,6 @@ def sse_events():
 @app.route('/api/csrf')
 def api_csrf():
     return jsonify({'csrf_token': generate_csrf_token()})
-
 
 @app.route('/api/login', methods=['POST'])
 @limiter.limit("10/minute")
@@ -1494,7 +1032,6 @@ def api_login():
         login_user(User(user['id'], user['username'], user.get('role', 'user')))
         return jsonify({'user': {'id': user['id'], 'username': user['username'], 'role': user.get('role', 'user'), 'is_admin': user.get('role') == 'admin'}})
     return jsonify({'error': 'Invalid username or password.'}), 401
-
 
 @app.route('/api/register', methods=['POST'])
 @limiter.limit("5/minute")
@@ -1526,7 +1063,6 @@ def api_register():
     conn.close()
     return jsonify({'message': 'Account created! Waiting for admin approval.'})
 
-
 @app.route('/api/logout', methods=['POST'])
 @login_required
 @validate_csrf
@@ -1534,18 +1070,15 @@ def api_logout():
     logout_user()
     return jsonify({'ok': True})
 
-
 @app.route('/api/me')
 @login_required
 def api_me():
     return jsonify({'user': {'id': current_user.id, 'username': current_user.username, 'role': current_user.role, 'is_admin': current_user.is_admin}})
 
-
 @app.route('/api/preview', methods=['POST'])
 @login_required
 def api_preview_json():
     pass  # Handled by api_preview above
-
 
 @app.route('/api/download', methods=['POST'])
 @login_required
@@ -1596,7 +1129,6 @@ def api_download_track():
     download_executor.submit(bounded_download, run_download_progress, download_id, url, current_user.id, title, artist, image_url)
 
     return jsonify({'ok': True, 'download_id': download_id, 'message': f'Downloading: {artist} - {title}'})
-
 
 @app.route('/api/download/batch', methods=['POST'])
 @login_required
@@ -1649,7 +1181,6 @@ def api_download_batch():
 
     return jsonify({'ok': True, 'batch_id': batch_id, 'count': len(tracks), 'message': f'Batch downloading {len(tracks)} tracks...'})
 
-
 @app.route('/api/downloads')
 @login_required
 def api_downloads():
@@ -1664,7 +1195,6 @@ def api_downloads():
     conn.close()
     has_more = len(rows) > per_page
     return jsonify({'downloads': rows[:per_page], 'has_more': has_more, 'page': page})
-
 
 @app.route('/api/download/file/<int:download_id>')
 @login_required
@@ -1697,7 +1227,6 @@ def api_download_file(download_id):
 
     return jsonify({'error': 'File not found'}), 404
 
-
 @app.route('/api/delete/<int:download_id>', methods=['POST'])
 @login_required
 @validate_csrf
@@ -1719,7 +1248,6 @@ def api_delete_download(download_id):
     conn.close()
     return jsonify({'ok': True})
 
-
 @app.route('/api/history')
 @login_required
 def api_history():
@@ -1734,7 +1262,6 @@ def api_history():
     conn.close()
     has_more = len(rows) > per_page
     return jsonify({'items': rows[:per_page], 'has_more': has_more, 'page': page})
-
 
 @app.route('/api/history/<int:history_id>')
 @login_required
@@ -1779,7 +1306,6 @@ def api_history_detail(history_id):
 
     return jsonify({'item': item, 'tracks': tracks, 'zip_available': zip_available})
 
-
 @app.route('/api/admin/users')
 @login_required
 def api_admin_users():
@@ -1793,7 +1319,6 @@ def api_admin_users():
         if u.get('created_at'):
             u['created_at'] = u['created_at'].isoformat()
     return jsonify({'users': users})
-
 
 @app.route('/api/admin/users/<action>/<int:user_id>', methods=['POST'])
 @login_required
@@ -1818,7 +1343,6 @@ def api_admin_user_action(action, user_id):
     conn.close()
     return jsonify({'ok': True})
 
-
 @app.route('/api/admin/settings', methods=['GET', 'POST'])
 @login_required
 @validate_csrf
@@ -1836,7 +1360,6 @@ def api_admin_settings():
         save_app_config(app_config)
         return jsonify({'ok': True, 'config': app_config})
     return jsonify({'config': load_app_config()})
-
 
 @app.route('/api/settings', methods=['POST'])
 @login_required
@@ -1876,7 +1399,6 @@ def api_user_settings():
         return jsonify({'ok': True})
     return jsonify({'error': 'Invalid action'}), 400
 
-
 # Wrapper functions that broadcast SSE events
 def run_download_progress(download_id, spotify_url, user_id, title, artist, image_url):
     sse_broadcast(user_id, 'download_update', {'id': download_id, 'title': title, 'artist': artist, 'status': 'processing'})
@@ -1891,7 +1413,6 @@ def run_download_progress(download_id, spotify_url, user_id, title, artist, imag
     elif row and row['status'] == 'failed':
         sse_broadcast(user_id, 'download_failed', {'id': download_id, 'title': title, 'artist': artist, 'status': 'failed'})
 
-
 def run_batch_download_progress(download_id, spotify_url, user_id, title, artist, image_url, batch_id):
     run_batch_download(download_id, spotify_url, user_id, title, artist, image_url, batch_id)
     conn = get_db()
@@ -1903,7 +1424,6 @@ def run_batch_download_progress(download_id, spotify_url, user_id, title, artist
         sse_broadcast(user_id, 'download_complete', {'id': download_id, 'title': title, 'artist': artist, 'status': 'completed'})
     elif row and row['status'] == 'failed':
         sse_broadcast(user_id, 'download_failed', {'id': download_id, 'title': title, 'artist': artist, 'status': 'failed'})
-
 
 # ──────────────────────────────────────────────
 # Error Handlers
@@ -1932,7 +1452,6 @@ def server_error(e):
     if request.path.startswith('/api/'):
         return jsonify({'error': 'Internal server error'}), 500
     return render_template('error.html', code=500, message='Internal Server Error'), 500
-
 
 # ──────────────────────────────────────────────
 
