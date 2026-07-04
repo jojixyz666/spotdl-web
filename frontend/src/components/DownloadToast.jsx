@@ -128,7 +128,7 @@ export default function DownloadToast() {
                       item.status === 'failed' ? 'text-red-400' :
                       'text-text-muted'
                     }`}>
-                      {item.status === 'completed' ? 'Done' : item.status === 'failed' ? 'Failed' : '...'}
+                      {item.status === 'completed' ? 'Done' : item.status === 'failed' ? 'Failed' : item.source ? `Via ${item.source}` : '...'}
                     </span>
                   </motion.div>
                 ))}

@@ -13,6 +13,9 @@ import io
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 from functools import wraps
+
+import rq
+from redis import Redis as RedisConnection
 from urllib.parse import urlparse
 
 sys.path.insert(0, '/opt/spotdl-web/app')
@@ -72,6 +75,15 @@ if redis_client:
         SESSION_KEY_PREFIX='spotdl:session:',
     )
     Session(app)
+
+# Redis Queue for persistent downloads
+download_queue = None
+if redis_client:
+    try:
+        _rq_conn = RedisConnection.from_url(REDIS_URL)
+        download_queue = rq.Queue('spotdl-downloads', connection=_rq_conn)
+    except Exception:
+        download_queue = None
 
 # DB Config from env
 DB_CONFIG = {
@@ -150,6 +162,31 @@ def cache_delete_pattern(pattern):
 
 def cache_key(*args):
     return 'spotdl:cache:' + hashlib.md5(':'.join(str(a) for a in args).encode()).hexdigest()
+
+# ──────────────────────────────────────────────
+# Estimated file size calculator
+# ──────────────────────────────────────────────
+
+BITRATE_MAP = {
+    '8k': 8, '16k': 16, '24k': 24, '32k': 32, '40k': 40, '48k': 48,
+    '64k': 64, '80k': 80, '96k': 96, '112k': 112, '128k': 128,
+    '160k': 160, '192k': 192, '224k': 224, '256k': 256, '320k': 320,
+}
+
+FORMAT_BITRATE_DEFAULTS = {
+    'mp3': 128, 'm4a': 128, 'ogg': 96, 'opus': 96, 'flac': 800, 'wav': 1411,
+}
+
+def estimate_size_mb(duration_ms, audio_format='mp3', bitrate='128k'):
+    if not duration_ms or duration_ms <= 0:
+        return 0
+    duration_s = duration_ms / 1000
+    if bitrate == 'disable' or bitrate == 'auto':
+        kbps = FORMAT_BITRATE_DEFAULTS.get(audio_format, 128)
+    else:
+        kbps = BITRATE_MAP.get(bitrate, 128)
+    size_bytes = (kbps * 1000 / 8) * duration_s
+    return round(size_bytes / (1024 * 1024), 1)
 
 DEFAULT_APP_CONFIG = {
     'batch_limit': 500,
@@ -398,6 +435,8 @@ def fetch_spotify_playlist_metadata(url):
             if not track_id:
                 continue
             audio = t.get('audioPreview', {})
+            track_images = t.get('visualIdentity', {}).get('image', [])
+            track_image = track_images[0].get('url', '') if track_images else image_url
             tracks.append({
                 'index': i + 1,
                 'id': track_id,
@@ -406,7 +445,7 @@ def fetch_spotify_playlist_metadata(url):
                 'artist': t.get('subtitle', 'Unknown'),
                 'duration_ms': t.get('duration', 0),
                 'preview_url': audio.get('url', '') if audio else '',
-                'image_url': image_url,
+                'image_url': track_image,
                 'url': f'https://open.spotify.com/track/{track_id}',
             })
 
@@ -1013,6 +1052,22 @@ def sse_broadcast(user_id, event, data):
         except queue.Full:
             pass
 
+@app.route('/api/queue/status')
+@login_required
+def api_queue_status():
+    if not download_queue:
+        return jsonify({'queue_enabled': False})
+    try:
+        q = rq.Queue('spotdl-downloads', connection=download_queue.connection)
+        jobs = q.jobs
+        return jsonify({
+            'queue_enabled': True,
+            'queued': len(jobs),
+            'job_ids': [j.id for j in jobs[:10]],
+        })
+    except Exception:
+        return jsonify({'queue_enabled': True, 'queued': 0})
+
 @app.route('/api/events')
 @login_required
 def sse_events():
@@ -1120,6 +1175,8 @@ def api_me():
 def api_preview_json():
     data = request.get_json(silent=True) or {}
     url = data.get('spotify_url', '').strip()
+    audio_format = data.get('audio_format', 'mp3')
+    bitrate = data.get('bitrate', '128k')
     if not url:
         return jsonify({'error': 'Please enter a Spotify URL.'}), 400
 
@@ -1132,12 +1189,19 @@ def api_preview_json():
         if not metadata:
             return jsonify({'error': 'Could not fetch track info. Check the URL.'}), 400
         metadata['type'] = 'track'
+        metadata['estimated_size_mb'] = estimate_size_mb(metadata.get('duration_ms', 0), audio_format, bitrate)
         return jsonify(metadata)
 
     if content_type in ('album', 'playlist'):
         metadata = fetch_spotify_playlist_metadata(url)
         if not metadata:
             return jsonify({'error': f'Could not fetch {content_type} info. Check the URL.'}), 400
+        total_ms = sum(t.get('duration_ms', 0) for t in metadata.get('tracks', []))
+        metadata['estimated_size_mb'] = estimate_size_mb(total_ms, audio_format, bitrate)
+        metadata['audio_format'] = audio_format
+        metadata['bitrate'] = bitrate
+        for t in metadata.get('tracks', []):
+            t['estimated_size_mb'] = estimate_size_mb(t.get('duration_ms', 0), audio_format, bitrate)
         return jsonify(metadata)
 
     if content_type == 'artist':
@@ -1191,7 +1255,11 @@ def api_download_track():
         conn.close()
 
     sse_broadcast(current_user.id, 'download_update', {'id': download_id, 'title': title, 'artist': artist, 'status': 'pending'})
-    download_executor.submit(bounded_download, run_download_progress, download_id, url, current_user.id, title, artist, image_url)
+    if download_queue:
+        from worker import rq_run_download
+        download_queue.enqueue(rq_run_download, download_id, url, current_user.id, title, artist, image_url, job_timeout=600)
+    else:
+        download_executor.submit(bounded_download, run_download_progress, download_id, url, current_user.id, title, artist, image_url)
 
     return jsonify({'ok': True, 'download_id': download_id, 'message': f'Downloading: {artist} - {title}'})
 
@@ -1242,7 +1310,11 @@ def api_download_batch():
         download_ids.append(did)
         sse_broadcast(current_user.id, 'download_update', {'id': did, 'title': t_title, 'artist': t_artist, 'status': 'pending'})
 
-        download_executor.submit(bounded_download, run_batch_download_progress, did, t_url, current_user.id, t_title, t_artist, t_image, batch_id)
+        if download_queue:
+            from worker import rq_run_batch_download
+            download_queue.enqueue(rq_run_batch_download, did, t_url, current_user.id, t_title, t_artist, t_image, batch_id, job_timeout=600)
+        else:
+            download_executor.submit(bounded_download, run_batch_download_progress, did, t_url, current_user.id, t_title, t_artist, t_image, batch_id)
 
     return jsonify({'ok': True, 'batch_id': batch_id, 'count': len(tracks), 'message': f'Batch downloading {len(tracks)} tracks...'})
 

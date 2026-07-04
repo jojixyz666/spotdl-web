@@ -43,7 +43,7 @@ export default function DashboardPage() {
     setLoading(true)
     setPreview(null)
     try {
-      const data = await api.preview(url)
+      const data = await api.preview(url, audioFormat, bitrate)
       if (data.error) {
         toast.error(data.error)
       } else {
@@ -231,7 +231,7 @@ function TrackPreview({ data, onDownload, playingId, togglePreview, audioFormat,
           {data.duration_ms > 0 && (
             <p className="text-text-muted text-sm mt-1">{formatDuration(data.duration_ms)}</p>
           )}
-          <p className="text-text-muted text-xs mt-1">Format: {audioFormat.toUpperCase()} | Bitrate: {bitrate === 'disable' ? 'Original' : bitrate === 'auto' ? 'Auto' : bitrate}</p>
+          <p className="text-text-muted text-xs mt-1">Format: {audioFormat.toUpperCase()} | Bitrate: {bitrate === 'disable' ? 'Original' : bitrate === 'auto' ? 'Auto' : bitrate} | Est: {data.estimated_size_mb ? `~${data.estimated_size_mb} MB` : '...'}</p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           {data.preview_url && (
@@ -293,6 +293,7 @@ function PlaylistPreview({ data, onDownload, onBatch, playingId, togglePreview, 
             {tracks.length} tracks
             {tracks.length > limit && <span className="text-amber-400 ml-2">(limit: {limit})</span>}
             <span className="text-text-muted ml-2">| {audioFormat.toUpperCase()} / {bitrate === 'disable' ? 'Original' : bitrate}</span>
+            {data.estimated_size_mb > 0 && <span className="text-text-muted ml-2">| ~{data.estimated_size_mb} MB total</span>}
           </p>
         </div>
       </div>
@@ -351,6 +352,7 @@ function PlaylistPreview({ data, onDownload, onBatch, playingId, togglePreview, 
               <p className="text-xs text-text-secondary truncate">{t.artist}</p>
             </div>
             <span className="text-xs text-text-muted flex-shrink-0">{formatDuration(t.duration_ms)}</span>
+            {t.estimated_size_mb > 0 && <span className="text-xs text-text-muted flex-shrink-0">~{t.estimated_size_mb}MB</span>}
             {t.preview_url && (
               <button onClick={() => togglePreview(`pl-${i}`, t.preview_url)} className="p-1.5 rounded-lg hover:bg-white/5 text-text-muted hover:text-text-primary transition-colors flex-shrink-0">
                 {playingId === `pl-${i}` ? <Pause size={14} /> : <Play size={14} />}
@@ -372,8 +374,17 @@ function DownloadItem({ data, onDelete }) {
   const statusColors = {
     pending: 'badge-yellow',
     processing: 'badge-blue',
+    searching: 'badge-blue',
     completed: 'badge-green',
     failed: 'badge-red',
+  }
+
+  const statusLabels = {
+    pending: 'Queued',
+    processing: 'Processing...',
+    searching: `Searching ${data.source || ''}...`,
+    completed: 'Completed',
+    failed: 'Failed',
   }
 
   return (
@@ -394,7 +405,7 @@ function DownloadItem({ data, onDelete }) {
         {data.status === 'completed' && data.filename ? (
           <>
             <a href={`/api/download/file/${data.id}`} className="btn-primary btn-sm">
-              <Download size={14} /> MP3
+              <Download size={14} /> {data.filename?.split('.').pop()?.toUpperCase() || 'File'}
             </a>
             {confirming ? (
               <div className="flex items-center gap-1">
@@ -410,9 +421,11 @@ function DownloadItem({ data, onDelete }) {
         ) : data.status === 'failed' ? (
           <span className="badge-red">Failed</span>
         ) : (
-          <span className={statusColors[data.status] || 'badge-gray'}>
-            <Loader2 size={12} className="animate-spin-slow" />
-            {data.status}
+          <span className={`${statusColors[data.status] || 'badge-gray'} flex items-center gap-1.5`}>
+            {(data.status === 'pending' || data.status === 'processing' || data.status === 'searching') && (
+              <Loader2 size={12} className="animate-spin-slow" />
+            )}
+            {statusLabels[data.status] || data.status}
           </span>
         )}
       </div>
