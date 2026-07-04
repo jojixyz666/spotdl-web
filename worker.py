@@ -7,354 +7,239 @@ import subprocess
 import requests
 from datetime import datetime
 
-sys.path.insert(0, os.path.dirname(__file__))
+sys.path.insert(0, '/opt/spotdl-web')
+
 os.environ.setdefault('FLASK_KEY', 'key')
 
-from app import app, get_db, sse_broadcast, redis_client
+from app import create_app
+from app.models import get_db
+from app.sse import sse_broadcast
+from app.config import (
+    YTDLP_BIN, FFMPEG_BIN, DOWNLOAD_FOLDER, load_app_config
+)
+from app.utils import sanitize_filename
+from app.spotify import fetch_spotify_metadata
+
+flask_app = create_app()
+
 
 def rq_run_download(download_id, spotify_url, user_id, title, artist, image_url):
-    sse_broadcast(user_id, 'download_update', {'id': download_id, 'title': title, 'artist': artist, 'status': 'processing'})
-    _do_download(download_id, spotify_url, user_id, title, artist, image_url)
-    conn = get_db()
-    c = conn.cursor(dictionary=True)
-    c.execute('SELECT status, filename FROM downloads WHERE id = %s', (download_id,))
-    row = c.fetchone()
-    conn.close()
-    if row and row['status'] == 'completed':
-        sse_broadcast(user_id, 'download_complete', {'id': download_id, 'title': title, 'artist': artist, 'status': 'completed', 'filename': row['filename']})
-    elif row and row['status'] == 'failed':
-        sse_broadcast(user_id, 'download_failed', {'id': download_id, 'title': title, 'artist': artist, 'status': 'failed'})
+    with flask_app.app_context():
+        sse_broadcast(user_id, 'download_update', {'id': download_id, 'title': title, 'artist': artist, 'status': 'processing'})
+        _do_download(download_id, spotify_url, user_id, title, artist, image_url)
+        conn = get_db()
+        c = conn.cursor(dictionary=True)
+        c.execute('SELECT status, filename FROM downloads WHERE id = %s', (download_id,))
+        row = c.fetchone()
+        conn.close()
+        if row and row['status'] == 'completed':
+            sse_broadcast(user_id, 'download_complete', {'id': download_id, 'title': title, 'artist': artist, 'status': 'completed', 'filename': row['filename']})
+        elif row and row['status'] == 'failed':
+            sse_broadcast(user_id, 'download_failed', {'id': download_id, 'title': title, 'artist': artist, 'status': 'failed'})
 
 
 def rq_run_batch_download(download_id, spotify_url, user_id, title, artist, image_url, batch_id):
-    _do_batch_download(download_id, spotify_url, user_id, title, artist, image_url, batch_id)
-    conn = get_db()
-    c = conn.cursor(dictionary=True)
-    c.execute('SELECT status FROM downloads WHERE id = %s', (download_id,))
-    row = c.fetchone()
-    conn.close()
-    if row and row['status'] == 'completed':
-        sse_broadcast(user_id, 'download_complete', {'id': download_id, 'title': title, 'artist': artist, 'status': 'completed'})
-    elif row and row['status'] == 'failed':
-        sse_broadcast(user_id, 'download_failed', {'id': download_id, 'title': title, 'artist': artist, 'status': 'failed'})
+    with flask_app.app_context():
+        _do_batch_download(download_id, spotify_url, user_id, title, artist, image_url, batch_id)
+        conn = get_db()
+        c = conn.cursor(dictionary=True)
+        c.execute('SELECT status FROM downloads WHERE id = %s', (download_id,))
+        row = c.fetchone()
+        conn.close()
+        if row and row['status'] == 'completed':
+            sse_broadcast(user_id, 'download_complete', {'id': download_id, 'title': title, 'artist': artist, 'status': 'completed'})
+        elif row and row['status'] == 'failed':
+            sse_broadcast(user_id, 'download_failed', {'id': download_id, 'title': title, 'artist': artist, 'status': 'failed'})
 
 
-YDL_OPTS = {
-    'quiet': True,
-    'no_warnings': True,
-    'skip_download': True,
-    'noplaylist': True,
-    'extract_flat': False,
-    'no_color': True,
-}
-
-def _get_audio_opts(title, artist):
-    config_path = os.path.join(os.path.dirname(__file__), 'config.json')
-    config = {}
-    if os.path.exists(config_path):
-        with open(config_path) as f:
-            config = json.load(f)
-    audio_format = config.get('audio_format', 'mp3')
-    bitrate = config.get('bitrate', '128k')
-    bitrate_map = {
-        '128k': '128k', '160k': '160k', '192k': '192k', '224k': '224k',
-        '256k': '256k', '320k': '320k', 'auto': 'auto', 'disable': 'disable',
-    }
-    b = bitrate_map.get(bitrate, '128k')
-    opts = {
-        'outtmpl': f'{title} - {artist}.%(ext)s',
-        'writethumbnail': True,
-        'postprocessors': [
-            {'key': 'FFmpegThumbnailsConvertor', 'format': 'jpg'},
-            {'key': 'FFmpegMetadata'},
-            {'key': 'EmbedThumbnail'},
-        ],
-    }
-    if audio_format == 'mp3':
-        opts['format'] = 'bestaudio/best'
-        opts['postprocessors'].insert(0, {
-            'key': 'FFmpegExtractAudio',
-            'preferredcodec': 'mp3',
-            'preferredquality': b if b not in ('disable', 'auto') else '192k',
-        })
-    elif audio_format == 'm4a':
-        opts['format'] = 'bestaudio/best'
-        opts['postprocessors'].insert(0, {
-            'key': 'FFmpegExtractAudio',
-            'preferredcodec': 'm4a',
-            'preferredquality': b if b not in ('disable', 'auto') else '192k',
-        })
-    elif audio_format == 'flac':
-        opts['format'] = 'bestaudio/best'
-        opts['postprocessors'].insert(0, {
-            'key': 'FFmpegExtractAudio',
-            'preferredcodec': 'flac',
-            'preferredquality': b if b not in ('disable', 'auto') else '192k',
-        })
-    elif audio_format == 'wav':
-        opts['format'] = 'bestaudio/best'
-        opts['postprocessors'].insert(0, {
-            'key': 'FFmpegExtractAudio',
-            'preferredcodec': 'wav',
-            'preferredquality': b if b not in ('disable', 'auto') else '192k',
-        })
-    elif audio_format == 'ogg':
-        opts['format'] = 'bestaudio/best'
-        opts['postprocessors'].insert(0, {
-            'key': 'FFmpegExtractAudio',
-            'preferredcodec': 'vorbis',
-            'preferredquality': b if b not in ('disable', 'auto') else '192k',
-        })
-    elif audio_format == 'opus':
-        opts['format'] = 'bestaudio/best'
-        opts['postprocessors'].insert(0, {
-            'key': 'FFmpegExtractAudio',
-            'preferredcodec': 'opus',
-            'preferredquality': b if b not in ('disable', 'auto') else '192k',
-        })
+def _get_bitrate_args(bitrate):
+    if bitrate == 'disable':
+        return ['--bitrate', 'disable']
+    elif bitrate == 'auto':
+        return ['--bitrate', 'auto']
     else:
-        opts['format'] = 'bestaudio/best'
-    return opts
+        return ['--audio-quality', bitrate.replace('k', '')]
 
-def _download_file(url, filepath):
-    yt_dlp_path = os.path.join(os.path.dirname(__file__), 'bin', 'yt-dlp')
-    ydl_opts = _get_audio_opts('temp', 'temp')
-    ydl_opts['outtmpl'] = filepath
-    ydl_opts['quiet'] = True
-    ydl_opts['no_warnings'] = True
-    ydl_opts['noprogress'] = True
-    ydl_opts['progress_hooks'] = []
-    ydl_opts['postprocessor_hooks'] = []
-    ydl_opts['nooverwrites'] = True
-    ydl_opts['ignoreerrors'] = True
-    ydl_opts['retries'] = 3
-    ydl_opts['fragment_retries'] = 3
-    ydl_opts['concurrent_fragment_downloads'] = 4
-    ydl_opts['http_chunk_size'] = 10485760
-    ydl_opts['socket_timeout'] = 30
-    ydl_opts['extractor_retries'] = 3
-    ydl_opts['file_access_retries'] = 3
-    ydl_opts['no_color'] = True
-    ydl_opts['noplaylist'] = True
-    ydl_opts['geo_bypass'] = True
-    ydl_opts['geo_bypass_country'] = 'US'
-    ydl_opts['http_headers'] = {
-        'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.5',
-        'Connection': 'keep-alive',
-    }
-    ydl_opts['extractor_args'] = {'youtube': {'player_client': ['web', 'android', 'ios']}}
-    ydl_opts['socket_connection_retries'] = 5
-    ydl_opts['source_address'] = '0.0.0.0'
-    ydl_opts['force_ipv4'] = True
-    ydl_opts['force_ipv6'] = False
-    try:
-        import yt_dlp
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.download([url])
-        files = []
-        for ext in ['mp3', 'm4a', 'flac', 'wav', 'ogg', 'opus', 'webm', 'aac', 'mp4', 'mkv']:
-            f = filepath + '.' + ext
-            if os.path.exists(f):
-                files.append(f)
-        if not files:
-            for f in os.listdir(os.path.dirname(filepath)):
-                fp = os.path.join(os.path.dirname(filepath), f)
-                if os.path.isfile(fp) and not f.endswith(('.part', '.ytdl', '.temp')):
-                    files.append(fp)
-        return files
-    except Exception as e:
-        print(f"[yt-dlp] Error: {e}")
-        return []
 
 def _do_download(download_id, spotify_url, user_id, title, artist, image_url):
-    user_dir = os.path.join(app.config['DOWNLOAD_FOLDER'], str(user_id))
-    os.makedirs(user_dir, exist_ok=True)
-    safe_filename = re.sub(r'[^\w\s\-]', '', f'{title} - {artist}').strip().replace(' ', '_')
-    filepath = os.path.join(user_dir, safe_filename)
+    cfg = load_app_config()
+    audio_format = cfg.get('audio_format', 'mp3')
+    bitrate = cfg.get('bitrate', '128k')
+
+    output_dir = os.path.join(DOWNLOAD_FOLDER, str(user_id))
+    os.makedirs(output_dir, exist_ok=True)
+
+    safe_name = f'{sanitize_filename(artist)} - {sanitize_filename(title)}'
+    output_template = os.path.join(output_dir, f'{safe_name}.%(ext)s')
+    bitrate_args = _get_bitrate_args(bitrate)
 
     conn = get_db()
     c = conn.cursor()
     c.execute('UPDATE downloads SET status = %s WHERE id = %s', ('processing', download_id))
-    conn.commit()
     conn.close()
     sse_broadcast(user_id, 'download_update', {'id': download_id, 'title': title, 'artist': artist, 'status': 'processing'})
 
+    # Strategy 1: YouTube
+    clients = ['web_creator', 'ios', 'mweb', 'tv']
+    for client in clients:
+        try:
+            cmd = [
+                YTDLP_BIN,
+                f'ytsearch1:{artist} - {title} official audio',
+                '--extract-audio', '--audio-format', audio_format,
+                *bitrate_args,
+                '--output', output_template, '--no-playlist', '--no-overwrites',
+                '--ffmpeg-location', FFMPEG_BIN, '--quiet', '--no-warnings',
+                '--extractor-args', f'youtube:player_client={client}',
+            ]
+            sse_broadcast(user_id, 'download_update', {'id': download_id, 'title': title, 'artist': artist, 'status': 'searching', 'source': 'YouTube'})
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+            if result.returncode == 0:
+                for f in os.listdir(output_dir):
+                    if f.endswith(('.mp3', '.wav', '.flac', '.m4a', '.ogg', '.opus')):
+                        conn = get_db()
+                        c = conn.cursor()
+                        c.execute('UPDATE downloads SET status = %s, filename = %s, message = %s WHERE id = %s',
+                                  ('completed', f, 'Download completed.', download_id))
+                        conn.close()
+                        return
+        except Exception:
+            continue
+
+    # Strategy 2: SoundCloud
     try:
-        results = []
+        sse_broadcast(user_id, 'download_update', {'id': download_id, 'title': title, 'artist': artist, 'status': 'searching', 'source': 'SoundCloud'})
+        sc_template = os.path.join(output_dir, f'{safe_name}.%(ext)s')
+        cmd = [
+            YTDLP_BIN, f'scsearch1:{artist} - {title}',
+            '--extract-audio', '--audio-format', audio_format,
+            *bitrate_args,
+            '--output', sc_template, '--no-playlist',
+            '--ffmpeg-location', FFMPEG_BIN, '--quiet', '--no-warnings',
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        if result.returncode == 0:
+            for f in os.listdir(output_dir):
+                if f.endswith(('.mp3', '.wav', '.flac', '.m4a', '.ogg', '.opus')):
+                    conn = get_db()
+                    c = conn.cursor()
+                    c.execute('UPDATE downloads SET status = %s, filename = %s, message = %s WHERE id = %s',
+                              ('completed', f, 'Downloaded from SoundCloud.', download_id))
+                    conn.close()
+                    return
+    except Exception:
+        pass
 
-        # Tier 1: YouTube search
-        sse_broadcast(user_id, 'download_update', {'id': download_id, 'title': title, 'artist': artist, 'status': 'searching', 'source': 'YouTube'})
-        youtube_results = _search_youtube(f'{title} {artist}')
-        for yt_url in youtube_results[:3]:
-            files = _download_file(yt_url, filepath)
-            if files:
-                results.extend(files)
-                break
-
-        # Tier 2: SoundCloud search
-        if not results:
-            sse_broadcast(user_id, 'download_update', {'id': download_id, 'title': title, 'artist': artist, 'status': 'searching', 'source': 'SoundCloud'})
-            soundcloud_results = _search_soundcloud(f'{title} {artist}')
-            for sc_url in soundcloud_results[:2]:
-                files = _download_file(sc_url, filepath)
-                if files:
-                    results.extend(files)
-                    break
-
-        # Tier 3: Spotify preview
-        if not results and preview_url:
+    # Strategy 3: Spotify preview
+    metadata = fetch_spotify_metadata(spotify_url)
+    if metadata and metadata.get('preview_url'):
+        try:
             sse_broadcast(user_id, 'download_update', {'id': download_id, 'title': title, 'artist': artist, 'status': 'searching', 'source': 'Spotify Preview'})
-            r = requests.get(preview_url, timeout=30)
-            if r.status_code == 200:
-                preview_path = filepath + '_preview.mp3'
+            preview_path = os.path.join(output_dir, f'{safe_name}.mp3')
+            r = requests.get(metadata['preview_url'], timeout=15)
+            if r.status_code == 200 and len(r.content) > 10000:
                 with open(preview_path, 'wb') as f:
                     f.write(r.content)
-                results.append(preview_path)
+                conn = get_db()
+                c = conn.cursor()
+                c.execute('UPDATE downloads SET status = %s, filename = %s, message = %s WHERE id = %s',
+                          ('completed', f'{safe_name}.mp3', 'Spotify preview (30s).', download_id))
+                conn.close()
+                return
+        except Exception:
+            pass
 
-        if not results:
-            conn = get_db()
-            c = conn.cursor()
-            c.execute('UPDATE downloads SET status = %s, error = %s WHERE id = %s', ('failed', 'Could not find audio source', download_id))
-            conn.commit()
-            conn.close()
-            return
+    conn = get_db()
+    c = conn.cursor()
+    c.execute('UPDATE downloads SET status = %s, message = %s WHERE id = %s',
+              ('failed', 'Download failed.', download_id))
+    conn.close()
 
-        if len(results) > 1:
-            zip_path = filepath + '.zip'
-            with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
-                for f in results:
-                    zf.write(f, os.path.basename(f))
-            output_file = zip_path
-        else:
-            output_file = results[0]
-
-        filename = os.path.basename(output_file)
-        file_size = os.path.getsize(output_file)
-        conn = get_db()
-        c = conn.cursor()
-        c.execute('UPDATE downloads SET status = %s, filename = %s, filepath = %s, file_size = %s, completed_at = %s WHERE id = %s',
-                  ('completed', filename, output_file, file_size, datetime.now(), download_id))
-        conn.commit()
-        conn.close()
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        conn = get_db()
-        c = conn.cursor()
-        c.execute('UPDATE downloads SET status = %s, error = %s WHERE id = %s', ('failed', str(e)[:1000], download_id))
-        conn.commit()
-        conn.close()
 
 def _do_batch_download(download_id, spotify_url, user_id, title, artist, image_url, batch_id):
-    batch_dir = os.path.join(app.config['DOWNLOAD_FOLDER'], str(user_id), f'batch_{batch_id}')
+    cfg = load_app_config()
+    audio_format = cfg.get('audio_format', 'mp3')
+    bitrate = cfg.get('bitrate', '128k')
+
+    batch_dir = os.path.join(DOWNLOAD_FOLDER, str(user_id), f'batch_{batch_id}')
     os.makedirs(batch_dir, exist_ok=True)
-    safe_filename = re.sub(r'[^\w\s\-]', '', f'{title} - {artist}').strip().replace(' ', '_')
-    filepath = os.path.join(batch_dir, safe_filename)
+
+    safe_name = f'{sanitize_filename(artist)} - {sanitize_filename(title)}'
+    output_template = os.path.join(batch_dir, f'{safe_name}.%(ext)s')
+    final_output = os.path.join(batch_dir, f'{safe_name}.{audio_format}')
+    bitrate_args = _get_bitrate_args(bitrate)
 
     conn = get_db()
     c = conn.cursor()
     c.execute('UPDATE downloads SET status = %s WHERE id = %s', ('processing', download_id))
-    conn.commit()
     conn.close()
 
+    # Strategy 1: YouTube
+    clients = ['web_creator', 'ios', 'mweb', 'tv']
+    for client in clients:
+        try:
+            sse_broadcast(user_id, 'download_update', {'id': download_id, 'title': title, 'artist': artist, 'status': 'searching', 'source': 'YouTube'})
+            cmd = [
+                YTDLP_BIN,
+                f'ytsearch1:{artist} - {title} official audio',
+                '--extract-audio', '--audio-format', audio_format,
+                *bitrate_args,
+                '--output', output_template, '--no-playlist', '--no-overwrites',
+                '--ffmpeg-location', FFMPEG_BIN, '--quiet', '--no-warnings',
+                '--extractor-args', f'youtube:player_client={client}',
+            ]
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+            if result.returncode == 0 and os.path.exists(final_output):
+                conn = get_db()
+                c = conn.cursor()
+                c.execute('UPDATE downloads SET status = %s, filename = %s, message = %s WHERE id = %s',
+                          ('completed', f'{safe_name}.{audio_format}', 'Downloaded.', download_id))
+                conn.close()
+                return
+        except Exception:
+            continue
+
+    # Strategy 2: SoundCloud
     try:
-        results = []
-
-        # Tier 1: YouTube search
-        sse_broadcast(user_id, 'download_update', {'id': download_id, 'title': title, 'artist': artist, 'status': 'searching', 'source': 'YouTube'})
-        youtube_results = _search_youtube(f'{title} {artist}')
-        for yt_url in youtube_results[:3]:
-            files = _download_file(yt_url, filepath)
-            if files:
-                results.extend(files)
-                break
-
-        # Tier 2: SoundCloud search
-        if not results:
-            sse_broadcast(user_id, 'download_update', {'id': download_id, 'title': title, 'artist': artist, 'status': 'searching', 'source': 'SoundCloud'})
-            soundcloud_results = _search_soundcloud(f'{title} {artist}')
-            for sc_url in soundcloud_results[:2]:
-                files = _download_file(sc_url, filepath)
-                if files:
-                    results.extend(files)
-                    break
-
-        if not results:
+        sse_broadcast(user_id, 'download_update', {'id': download_id, 'title': title, 'artist': artist, 'status': 'searching', 'source': 'SoundCloud'})
+        cmd = [
+            YTDLP_BIN, f'scsearch1:{artist} - {title}',
+            '--extract-audio', '--audio-format', audio_format,
+            *bitrate_args,
+            '--output', output_template, '--no-playlist',
+            '--ffmpeg-location', FFMPEG_BIN, '--quiet', '--no-warnings',
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        if result.returncode == 0 and os.path.exists(final_output):
             conn = get_db()
             c = conn.cursor()
-            c.execute('UPDATE downloads SET status = %s, error = %s WHERE id = %s', ('failed', 'Could not find audio source', download_id))
-            conn.commit()
+            c.execute('UPDATE downloads SET status = %s, filename = %s, message = %s WHERE id = %s',
+                      ('completed', f'{safe_name}.{audio_format}', 'Downloaded from SoundCloud.', download_id))
             conn.close()
             return
+    except Exception:
+        pass
 
-        if len(results) > 1:
-            zip_path = filepath + '.zip'
-            with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
-                for f in results:
-                    zf.write(f, os.path.basename(f))
-            output_file = zip_path
-        else:
-            output_file = results[0]
+    # Strategy 3: Spotify preview
+    metadata = fetch_spotify_metadata(spotify_url)
+    if metadata and metadata.get('preview_url'):
+        try:
+            sse_broadcast(user_id, 'download_update', {'id': download_id, 'title': title, 'artist': artist, 'status': 'searching', 'source': 'Spotify Preview'})
+            r = requests.get(metadata['preview_url'], timeout=15)
+            if r.status_code == 200 and len(r.content) > 10000:
+                with open(final_output, 'wb') as f:
+                    f.write(r.content)
+                conn = get_db()
+                c = conn.cursor()
+                c.execute('UPDATE downloads SET status = %s, filename = %s, message = %s WHERE id = %s',
+                          ('completed', f'{safe_name}.mp3', 'Spotify preview (30s).', download_id))
+                conn.close()
+                return
+        except Exception:
+            pass
 
-        filename = os.path.basename(output_file)
-        file_size = os.path.getsize(output_file)
-        conn = get_db()
-        c = conn.cursor()
-        c.execute('UPDATE downloads SET status = %s, filename = %s, filepath = %s, file_size = %s, completed_at = %s WHERE id = %s',
-                  ('completed', filename, output_file, file_size, datetime.now(), download_id))
-        conn.commit()
-        conn.close()
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        conn = get_db()
-        c = conn.cursor()
-        c.execute('UPDATE downloads SET status = %s, error = %s WHERE id = %s', ('failed', str(e)[:1000], download_id))
-        conn.commit()
-        conn.close()
-
-def _search_youtube(query):
-    try:
-        yt_dlp_path = os.path.join(os.path.dirname(__file__), 'bin', 'yt-dlp')
-        result = subprocess.run([yt_dlp_path, f'ytsearch5:{query}', '--flat-playlist', '--dump-json', '--no-warnings', '--ignore-errors'],
-            capture_output=True, text=True, timeout=30)
-        if result.returncode != 0:
-            return []
-        urls = []
-        for line in result.stdout.strip().split('\n'):
-            if line:
-                try:
-                    d = json.loads(line)
-                    url = d.get('url') or d.get('webpage_url')
-                    if url:
-                        urls.append(url)
-                except:
-                    pass
-        return urls
-    except:
-        return []
-
-def _search_soundcloud(query):
-    try:
-        yt_dlp_path = os.path.join(os.path.dirname(__file__), 'bin', 'yt-dlp')
-        result = subprocess.run([yt_dlp_path, f'scsearch5:{query}', '--flat-playlist', '--dump-json', '--no-warnings', '--ignore-errors'],
-            capture_output=True, text=True, timeout=30)
-        if result.returncode != 0:
-            return []
-        urls = []
-        for line in result.stdout.strip().split('\n'):
-            if line:
-                try:
-                    d = json.loads(line)
-                    url = d.get('url') or d.get('webpage_url')
-                    if url:
-                        urls.append(url)
-                except:
-                    pass
-        return urls
-    except:
-        return []
-
-import re
+    conn = get_db()
+    c = conn.cursor()
+    c.execute('UPDATE downloads SET status = %s, message = %s WHERE id = %s',
+              ('failed', 'Download failed.', download_id))
+    conn.close()
