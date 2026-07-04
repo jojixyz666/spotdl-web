@@ -1,0 +1,47 @@
+# Virtual environment (root level)
+bin/
+lib/
+lib64/
+include/
+pyvenv.cfg
+pip-selfcheck.json
+share/
+local/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Node
+node_modules/
+frontend/node_modules/
+
+# Downloads (user content)
+downloads/
+
+# Logs
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets (never commit)
+.env
+*.pem
+*.key
+
+# Compiled frontend (auto-generated)
+static/react/
