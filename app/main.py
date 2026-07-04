@@ -201,16 +201,20 @@ app.jinja_env.globals['csrf_token'] = generate_csrf_token
 def validate_csrf(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        token = request.form.get('_csrf_token') or request.headers.get('X-CSRF-Token')
-        if not token:
-            data = request.get_json(silent=True)
-            if data:
-                token = data.get('_csrf_token')
-        session_token = session.get('_csrf_token', '')
-        if not token or not hmac.compare_digest(token, session_token):
+        if not validate_csrf_request():
             abort(403)
         return f(*args, **kwargs)
     return decorated
+
+
+def validate_csrf_request():
+    token = request.form.get('_csrf_token') or request.headers.get('X-CSRF-Token')
+    if not token:
+        data = request.get_json(silent=True)
+        if data:
+            token = data.get('_csrf_token')
+    session_token = session.get('_csrf_token', '')
+    return bool(token and hmac.compare_digest(token, session_token))
 
 @app.after_request
 def set_security_headers(response):
@@ -240,7 +244,13 @@ def make_session_permanent():
 
 login_manager = LoginManager()
 login_manager.init_app(app)
-login_manager.login_view = 'login'
+login_manager.login_view = None
+
+@login_manager.unauthorized_handler
+def unauthorized():
+    if request.path.startswith('/api/'):
+        return jsonify({'error': 'Login required'}), 401
+    return jsonify({'error': 'Login required'}), 401
 
 class User(UserMixin):
     def __init__(self, id, username, role='user'):
@@ -1106,8 +1116,34 @@ def api_me():
 
 @app.route('/api/preview', methods=['POST'])
 @login_required
+@validate_csrf
 def api_preview_json():
-    pass  # Handled by api_preview above
+    data = request.get_json(silent=True) or {}
+    url = data.get('spotify_url', '').strip()
+    if not url:
+        return jsonify({'error': 'Please enter a Spotify URL.'}), 400
+
+    content_type, item_id = parse_spotify_url(url)
+    if not content_type:
+        return jsonify({'error': 'Invalid Spotify URL.'}), 400
+
+    if content_type == 'track':
+        metadata = fetch_spotify_metadata(url)
+        if not metadata:
+            return jsonify({'error': 'Could not fetch track info. Check the URL.'}), 400
+        metadata['type'] = 'track'
+        return jsonify(metadata)
+
+    if content_type in ('album', 'playlist'):
+        metadata = fetch_spotify_playlist_metadata(url)
+        if not metadata:
+            return jsonify({'error': f'Could not fetch {content_type} info. Check the URL.'}), 400
+        return jsonify(metadata)
+
+    if content_type == 'artist':
+        return jsonify({'error': 'Artist URLs not supported. Paste an album or playlist URL instead.'}), 400
+
+    return jsonify({'error': 'Unsupported Spotify URL type.'}), 400
 
 @app.route('/api/download', methods=['POST'])
 @login_required
@@ -1374,9 +1410,11 @@ def api_admin_user_action(action, user_id):
 
 @app.route('/api/admin/settings', methods=['GET', 'POST'])
 @login_required
-@validate_csrf
 def api_admin_settings():
     if not is_admin_user(): return jsonify({'error': 'Forbidden'}), 403
+    if request.method == 'POST':
+        if not validate_csrf_request():
+            return jsonify({'error': 'CSRF token missing'}), 403
     if request.method == 'POST':
         data = request.get_json(silent=True) or {}
         app_config = load_app_config()
