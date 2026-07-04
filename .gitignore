@@ -4,3 +4,9 @@ __pycache__/
 .env
 downloads/
 *.log
+bin/
+lib/
+lib64/
+include/
+share/
+pyvenv.cfg
