@@ -12,6 +12,6 @@ loglevel = 'warning'
 
 def on_starting(server):
     import sys
-    sys.path.insert(0, '/opt/spotdl-web/app')
+    sys.path.insert(0, '/opt/spotdl-web')
     from main import init_db
     init_db()

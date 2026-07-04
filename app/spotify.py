@@ -3,6 +3,7 @@ import re
 import json
 import time
 import requests
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from app.config import SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET
 from app.cache import cache_get, cache_set, cache_key
@@ -103,6 +104,66 @@ def fetch_spotify_metadata(url):
         return None
 
 
+def fetch_track_cover(track_id):
+    """Fetch a single track's cover art using oEmbed + embed fallback."""
+    ck = cache_key('track_cover', track_id)
+    cached = cache_get(ck)
+    if cached:
+        return cached
+
+    # Strategy 1: oEmbed API (fast, returns thumbnail)
+    try:
+        oembed_url = f'https://open.spotify.com/oembed?url=https://open.spotify.com/track/{track_id}'
+        r = requests.get(oembed_url, timeout=8)
+        if r.status_code == 200:
+            data = r.json()
+            thumbnail = data.get('thumbnail_url', '')
+            if thumbnail:
+                cache_set(ck, thumbnail, ttl=86400)
+                return thumbnail
+    except Exception:
+        pass
+
+    # Strategy 2: Embed page __NEXT_DATA__
+    try:
+        embed_url = f'https://open.spotify.com/embed/track/{track_id}'
+        headers = {'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36'}
+        r = requests.get(embed_url, headers=headers, timeout=8)
+        if r.status_code != 200:
+            return None
+
+        m = re.search(r'__NEXT_DATA__[^>]*>(.*?)</script>', r.text, re.DOTALL)
+        if not m:
+            return None
+
+        data = json.loads(m.group(1))
+        entity = data.get('props', {}).get('pageProps', {}).get('state', {}).get('data', {}).get('entity', {})
+        if not entity:
+            return None
+
+        images = entity.get('visualIdentity', {}).get('image', [])
+        image_url = images[0].get('url', '') if images else None
+        if image_url:
+            cache_set(ck, image_url, ttl=86400)
+        return image_url
+    except Exception:
+        return None
+
+
+def fetch_tracks_covers_concurrent(track_ids, max_workers=10):
+    """Fetch cover art for multiple tracks concurrently."""
+    results = {}
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        future_to_id = {executor.submit(fetch_track_cover, tid): tid for tid in track_ids}
+        for future in as_completed(future_to_id):
+            tid = future_to_id[future]
+            try:
+                results[tid] = future.result()
+            except Exception:
+                results[tid] = None
+    return results
+
+
 def fetch_spotify_playlist_metadata(url):
     content_type, playlist_id = parse_spotify_url(url)
     if not content_type or content_type not in ('album', 'playlist'):
@@ -155,6 +216,14 @@ def fetch_spotify_playlist_metadata(url):
                 'image_url': track_image,
                 'url': f'https://open.spotify.com/track/{track_id}',
             })
+
+        # Fetch individual track covers concurrently
+        track_ids = [t['id'] for t in tracks]
+        covers = fetch_tracks_covers_concurrent(track_ids, max_workers=10)
+        for t in tracks:
+            cover = covers.get(t['id'])
+            if cover:
+                t['image_url'] = cover
 
         result = {
             'type': content_type,
