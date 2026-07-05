@@ -7,7 +7,8 @@ import {
   Download, Music, Loader2, XCircle, Ban,
   Trash2, X,
   RefreshCw, ChevronDown, ChevronUp, Check,
-  Archive, Folder
+  Archive, Folder, HardDrive, ListMusic, Disc3,
+  Play, Pause, CheckCircle, AlertCircle, XCircle as XCircleIcon
 } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
@@ -20,7 +21,6 @@ export default function DownloadManagerPage() {
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(true)
   const [loading, setLoading] = useState(true)
-  const [expanded, setExpanded] = useState(true)
   const esRef = useRef(null)
 
   const loadDownloads = useCallback(async (p = 1, append = false) => {
@@ -187,6 +187,7 @@ export default function DownloadManagerPage() {
       const completedCount = b.downloads.filter(d => d.status === 'completed').length
       const failedCount = b.downloads.filter(d => d.status === 'failed').length
       const activeCount = b.downloads.filter(d => ['pending', 'processing', 'searching'].includes(d.status)).length
+      const firstImage = b.downloads.find(d => d.image_url)?.image_url
       return {
         ...b,
         total,
@@ -195,6 +196,7 @@ export default function DownloadManagerPage() {
         active: activeCount,
         allDone: completedCount + failedCount >= total && total > 0,
         progress: total > 0 ? (completedCount / total) * 100 : 0,
+        coverImage: firstImage,
       }
     })
 
@@ -218,10 +220,10 @@ export default function DownloadManagerPage() {
 
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <StatsCard label="Active" value={active.length} color="bg-nb-main" />
-          <StatsCard label="Completed" value={completed.length} color="bg-nb-foreground" />
-          <StatsCard label="Failed" value={failed.length} color="bg-nb-danger" />
-          <StatsCard label="Total" value={items.length} color="bg-nb-info" />
+          <StatsCard label="Active" value={active.length} color="bg-nb-main" icon={<Loader2 size={16} className="animate-spin-slow" />} />
+          <StatsCard label="Completed" value={completed.length} color="bg-green-500" icon={<CheckCircle size={16} />} />
+          <StatsCard label="Failed" value={failed.length} color="bg-nb-danger" icon={<AlertCircle size={16} />} />
+          <StatsCard label="Total" value={items.length} color="bg-nb-info" icon={<Music size={16} />} />
         </div>
       </motion.div>
 
@@ -255,82 +257,85 @@ export default function DownloadManagerPage() {
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
-              <button onClick={() => setExpanded(!expanded)} className="flex items-center gap-2 text-nb-foreground">
+              <div className="flex items-center gap-2">
                 <CardTitle>All Downloads</CardTitle>
-                {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-              </button>
+                <Badge variant="neutral" className="text-xs">{items.length}</Badge>
+              </div>
               <Button variant="ghost" size="sm" onClick={() => loadDownloads()} className="text-nb-foreground">
                 <RefreshCw size={14} /> Refresh
               </Button>
             </div>
           </CardHeader>
 
-          <AnimatePresence>
-            {expanded && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                className="overflow-hidden"
-              >
-                {loading && items.length === 0 ? (
-                  <div className="py-16 text-center">
-                    <div className="w-8 h-8 border-2 border-nb-border border-t-nb-main rounded-full animate-spin-slow mx-auto" />
-                  </div>
-                ) : items.length === 0 ? (
-                  <div className="py-16 text-center">
-                    <Download size={40} className="mx-auto text-nb-foreground mb-3" />
-                    <p className="text-nb-muted font-heading font-semibold">No downloads yet</p>
-                    <p className="text-nb-muted2 text-sm mt-1 font-heading">Start a download from the dashboard</p>
-                  </div>
-                ) : (
-                  <div className="divide-y-2 divide-nb-border">
-                    {batches.batchList.map((batch) => (
-                      <BatchGroup
-                        key={batch.batch_id}
-                        batch={batch}
-                        onDelete={handleDelete}
-                        onCancel={handleCancel}
-                      />
-                    ))}
+          <CardContent>
+            {loading && items.length === 0 ? (
+              <div className="py-16 text-center">
+                <div className="w-8 h-8 border-2 border-nb-border border-t-nb-main rounded-full animate-spin-slow mx-auto" />
+              </div>
+            ) : items.length === 0 ? (
+              <div className="py-16 text-center">
+                <Download size={40} className="mx-auto text-nb-foreground mb-3" />
+                <p className="text-nb-muted font-heading font-semibold">No downloads yet</p>
+                <p className="text-nb-muted2 text-sm mt-1 font-heading">Start a download from the dashboard</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {batches.batchList.map((batch) => (
+                  <BatchGroup
+                    key={batch.batch_id}
+                    batch={batch}
+                    onDelete={handleDelete}
+                    onCancel={handleCancel}
+                  />
+                ))}
 
-                    {batches.singles.map((d, i) => (
-                      <DownloadRow
-                        key={d.id}
-                        data={d}
-                        index={i}
-                        onDelete={handleDelete}
-                        onCancel={handleCancel}
-                      />
-                    ))}
+                {batches.singles.length > 0 && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-3">
+                      <Music size={14} className="text-nb-muted" />
+                      <span className="text-xs font-heading font-semibold text-nb-muted uppercase tracking-wider">Single Downloads</span>
+                    </div>
+                    <div className="space-y-2">
+                      {batches.singles.map((d, i) => (
+                        <DownloadRow
+                          key={d.id}
+                          data={d}
+                          index={i}
+                          onDelete={handleDelete}
+                          onCancel={handleCancel}
+                        />
+                      ))}
+                    </div>
                   </div>
                 )}
-
-                {hasMore && (
-                  <div className="py-3 text-center border-t-2 border-nb-border">
-                    <Button variant="ghost" size="sm" onClick={() => loadDownloads(page + 1, true)}>
-                      Load more
-                    </Button>
-                  </div>
-                )}
-              </motion.div>
+              </div>
             )}
-          </AnimatePresence>
+
+            {hasMore && (
+              <div className="py-3 text-center border-t-2 border-nb-border mt-4">
+                <Button variant="ghost" size="sm" onClick={() => loadDownloads(page + 1, true)}>
+                  Load more
+                </Button>
+              </div>
+            )}
+          </CardContent>
         </Card>
       </motion.div>
     </div>
   )
 }
 
-function StatsCard({ label, value, color }) {
+function StatsCard({ label, value, color, icon }) {
   return (
     <div
       className="rounded-nb p-4 flex flex-col items-center justify-center"
       style={{ borderWidth: '3px', borderStyle: 'solid', borderColor: '#000000' }}
     >
-      <span className="text-2xl font-heading font-bold text-nb-foreground">{value}</span>
-      <span className="text-xs text-nb-muted font-heading font-semibold mt-1">{label}</span>
+      <div className="flex items-center gap-2 mb-1">
+        <span className="text-nb-foreground">{icon}</span>
+        <span className="text-2xl font-heading font-bold text-nb-foreground">{value}</span>
+      </div>
+      <span className="text-xs text-nb-muted font-heading font-semibold">{label}</span>
     </div>
   )
 }
@@ -338,6 +343,7 @@ function StatsCard({ label, value, color }) {
 function BatchGroup({ batch, onDelete, onCancel }) {
   const [expanded, setExpanded] = useState(false)
   const [downloading, setDownloading] = useState(false)
+  const [downloadingAll, setDownloadingAll] = useState(false)
   const toast = useToast()
 
   const handleDownloadZip = async () => {
@@ -351,45 +357,80 @@ function BatchGroup({ batch, onDelete, onCancel }) {
     setDownloading(false)
   }
 
-  const statusBadge = batch.allDone
-    ? (batch.failed > 0 ? <Badge variant="warning">{batch.completed} done, {batch.failed} failed</Badge> : <Badge variant="default">All done</Badge>)
-    : batch.active > 0
-      ? <Badge variant="info" className="flex items-center gap-1"><Loader2 size={10} className="animate-spin-slow" /> {batch.active} active</Badge>
-      : null
+  const handleDownloadAll = async () => {
+    setDownloadingAll(true)
+    try {
+      const completedTracks = batch.downloads.filter(d => d.status === 'completed' && d.filename)
+      for (const track of completedTracks) {
+        window.open(`/api/download/file/${track.id}`, '_blank')
+        await new Promise(r => setTimeout(r, 300))
+      }
+      toast.success(`Downloading ${completedTracks.length} files`)
+    } catch {
+      toast.error('Download failed')
+    }
+    setDownloadingAll(false)
+  }
+
+  const activeCount = batch.downloads.filter(d => ['pending', 'processing', 'searching'].includes(d.status)).length
+  const completedTracks = batch.downloads.filter(d => d.status === 'completed' && d.filename)
 
   return (
-    <div className="hover:bg-nb-secondary/20 transition-colors">
-      <div className="flex items-center gap-3 px-4 py-3">
-        <div className="w-10 h-10 rounded-nb bg-nb-surface2 border-2 border-nb-border flex items-center justify-center flex-shrink-0">
-          <Folder size={14} className="text-nb-foreground" />
-        </div>
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="rounded-nb border-2 border-nb-border overflow-hidden"
+      style={{ boxShadow: '4px 4px 0px 0px rgba(0,0,0,1)' }}
+    >
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center gap-4 p-4 hover:bg-nb-secondary/20 transition-colors text-left"
+      >
+        {batch.coverImage ? (
+          <img src={batch.coverImage} alt="" className="w-14 h-14 rounded-nb object-cover border-2 border-nb-border flex-shrink-0" />
+        ) : (
+          <div className="w-14 h-14 rounded-nb bg-nb-surface2 border-2 border-nb-border flex items-center justify-center flex-shrink-0">
+            <ListMusic size={20} className="text-nb-foreground" />
+          </div>
+        )}
 
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <p className="text-sm font-heading font-semibold text-nb-foreground truncate">{batch.collection_name}</p>
-            <Badge variant="neutral" className="text-[10px] flex-shrink-0">{batch.total} tracks</Badge>
+          <p className="font-heading font-bold text-nb-foreground truncate">{batch.collection_name}</p>
+          <div className="flex items-center gap-3 mt-1">
+            <span className="text-xs text-nb-muted font-heading">{batch.total} tracks</span>
+            {activeCount > 0 && (
+              <span className="text-xs text-nb-main font-heading flex items-center gap-1">
+                <Loader2 size={10} className="animate-spin-slow" />
+                {activeCount} downloading
+              </span>
+            )}
           </div>
-          <div className="mt-1.5">
+          <div className="mt-2">
             <Progress value={batch.progress} className="h-2" />
           </div>
-          <p className="text-[10px] text-nb-muted font-heading mt-0.5">
+          <p className="text-[10px] text-nb-muted font-heading mt-1">
             {batch.completed}/{batch.total} completed
           </p>
         </div>
 
         <div className="flex items-center gap-2 flex-shrink-0">
-          {statusBadge}
-          {batch.allDone && batch.completed > 0 && (
-            <Button size="sm" onClick={handleDownloadZip} disabled={downloading}>
-              {downloading ? <Loader2 size={14} className="animate-spin-slow" /> : <Archive size={14} />}
-              ZIP
-            </Button>
+          {batch.allDone ? (
+            <Badge variant="default" className="flex items-center gap-1">
+              <Check size={10} /> Done
+            </Badge>
+          ) : activeCount > 0 ? (
+            <Badge variant="info" className="flex items-center gap-1">
+              <Loader2 size={10} className="animate-spin-slow" /> Active
+            </Badge>
+          ) : null}
+
+          {expanded ? (
+            <ChevronUp size={18} className="text-nb-muted" />
+          ) : (
+            <ChevronDown size={18} className="text-nb-muted" />
           )}
-          <Button variant="ghost" size="icon-sm" onClick={() => setExpanded(!expanded)} className="text-nb-foreground">
-            {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-          </Button>
         </div>
-      </div>
+      </button>
 
       <AnimatePresence>
         {expanded && (
@@ -397,18 +438,43 @@ function BatchGroup({ batch, onDelete, onCancel }) {
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.15 }}
-            className="overflow-hidden border-t border-nb-border/50"
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
           >
-            <div className="divide-y divide-nb-border/30">
-              {batch.downloads.map((d, i) => (
-                <DownloadRow key={d.id} data={d} index={i} onDelete={onDelete} onCancel={onCancel} nested />
-              ))}
+            <div className="border-t-2 border-nb-border bg-nb-surface/50">
+              <div className="p-3 flex flex-wrap gap-2 border-b border-nb-border/50">
+                {completedTracks.length > 0 && (
+                  <>
+                    <Button size="sm" onClick={handleDownloadAll} disabled={downloadingAll}>
+                      {downloadingAll ? <Loader2 size={14} className="animate-spin-slow" /> : <HardDrive size={14} />}
+                      Save to Device
+                    </Button>
+                    <Button size="sm" variant="secondary" onClick={handleDownloadZip} disabled={downloading}>
+                      {downloading ? <Loader2 size={14} className="animate-spin-slow" /> : <Archive size={14} />}
+                      Save to ZIP
+                    </Button>
+                  </>
+                )}
+                {!batch.allDone && (
+                  <Button size="sm" variant="ghost" onClick={() => {
+                    batch.downloads.filter(d => ['pending', 'processing', 'searching'].includes(d.status))
+                      .forEach(d => onCancel(d.id))
+                  }} className="text-nb-danger hover:bg-nb-danger/10">
+                    <XCircle size={14} /> Cancel Active
+                  </Button>
+                )}
+              </div>
+
+              <div className="divide-y divide-nb-border/30">
+                {batch.downloads.map((d, i) => (
+                  <DownloadRow key={d.id} data={d} index={i} onDelete={onDelete} onCancel={onCancel} nested />
+                ))}
+              </div>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </motion.div>
   )
 }
 
@@ -417,16 +483,16 @@ function DownloadRow({ data, index, onDelete, onCancel, nested }) {
   const isActive = data.status === 'pending' || data.status === 'processing' || data.status === 'searching'
 
   const statusConfig = {
-    pending: { badge: 'warning', label: 'Queued' },
-    processing: { badge: 'info', label: 'Processing' },
-    searching: { badge: 'info', label: `Searching ${data.source || ''}` },
-    completed: { badge: 'default', label: 'Done' },
-    failed: { badge: 'danger', label: 'Failed' },
-    cancelled: { badge: 'muted', label: 'Cancelled' },
+    pending: { badge: 'warning', label: 'Queued', icon: <Pause size={12} /> },
+    processing: { badge: 'info', label: 'Processing', icon: <Loader2 size={12} className="animate-spin-slow" /> },
+    searching: { badge: 'info', label: `Searching`, icon: <Loader2 size={12} className="animate-spin-slow" /> },
+    completed: { badge: 'default', label: 'Done', icon: <CheckCircle size={12} /> },
+    failed: { badge: 'danger', label: 'Failed', icon: <AlertCircle size={12} /> },
+    cancelled: { badge: 'muted', label: 'Cancelled', icon: <XCircleIcon size={12} /> },
   }
   const config = statusConfig[data.status] || statusConfig.muted
 
-  const padding = nested ? 'px-4 py-2' : 'px-4 py-3'
+  const padding = nested ? 'px-4 py-2.5' : 'px-4 py-3'
 
   return (
     <motion.div
@@ -457,7 +523,10 @@ function DownloadRow({ data, index, onDelete, onCancel, nested }) {
         {data.status === 'completed' && data.filename ? (
           <>
             <a href={`/api/download/file/${data.id}`}>
-              <Button size="sm"><Download size={14} /> {data.filename?.split('.').pop()?.toUpperCase() || 'File'}</Button>
+              <Button size="sm">
+                <Download size={14} />
+                {data.filename?.split('.').pop()?.toUpperCase() || 'File'}
+              </Button>
             </a>
             {confirmDelete ? (
               <div className="flex items-center gap-1">
@@ -477,7 +546,7 @@ function DownloadRow({ data, index, onDelete, onCancel, nested }) {
         ) : (
           <>
             <Badge variant={config.badge} className="flex items-center gap-1.5">
-              {isActive && <Loader2 size={12} className="animate-spin-slow" />}
+              {config.icon}
               {config.label}
             </Badge>
             <Button
