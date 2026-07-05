@@ -344,17 +344,39 @@ function BatchGroup({ batch, onDelete, onCancel }) {
   const [expanded, setExpanded] = useState(false)
   const [downloading, setDownloading] = useState(false)
   const [downloadingAll, setDownloadingAll] = useState(false)
+  const [creatingZip, setCreatingZip] = useState(false)
   const toast = useToast()
 
   const handleDownloadZip = async () => {
-    setDownloading(true)
+    if (creatingZip || downloading) return
+    setCreatingZip(true)
+    toast.info('Creating ZIP file, please wait...')
+
     try {
-      window.open(`/api/download/batch/${batch.batch_id}/zip`, '_blank')
-      toast.success('ZIP download started')
+      const data = await api.createBatchZip(batch.batch_id)
+      if (data.error) {
+        toast.error(data.error)
+        setCreatingZip(false)
+        return
+      }
+
+      setCreatingZip(false)
+      setDownloading(true)
+      toast.success(`ZIP ready! ${data.file_count} files (${(data.size / 1024 / 1024).toFixed(1)} MB)`)
+
+      const link = document.createElement('a')
+      link.href = data.download_url
+      link.download = data.filename
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+
+      setTimeout(() => setDownloading(false), 2000)
     } catch {
-      toast.error('ZIP download failed')
+      toast.error('Failed to create ZIP')
+      setCreatingZip(false)
+      setDownloading(false)
     }
-    setDownloading(false)
   }
 
   const handleDownloadAll = async () => {
@@ -449,9 +471,9 @@ function BatchGroup({ batch, onDelete, onCancel }) {
                       {downloadingAll ? <Loader2 size={14} className="animate-spin-slow" /> : <HardDrive size={14} />}
                       Save to Device
                     </Button>
-                    <Button size="sm" variant="secondary" onClick={handleDownloadZip} disabled={downloading}>
-                      {downloading ? <Loader2 size={14} className="animate-spin-slow" /> : <Archive size={14} />}
-                      Save to ZIP
+                    <Button size="sm" variant="secondary" onClick={handleDownloadZip} disabled={creatingZip || downloading}>
+                      {creatingZip ? <Loader2 size={14} className="animate-spin-slow" /> : downloading ? <Check size={14} /> : <Archive size={14} />}
+                      {creatingZip ? 'Creating...' : downloading ? 'Done!' : 'Save to ZIP'}
                     </Button>
                   </>
                 )}

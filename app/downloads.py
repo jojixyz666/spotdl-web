@@ -918,6 +918,86 @@ def register_download_routes(app, limiter):
         except Exception:
             return jsonify({'queue_enabled': True, 'queued': 0})
 
+    @app.route('/api/download/batch/<batch_id>/zip/create', methods=['POST'])
+    @login_required
+    @validate_csrf
+    def api_batch_zip_create(batch_id):
+        import re as _re
+        batch_id = _re.sub(r'[^a-f0-9]', '', batch_id)
+        if not batch_id or len(batch_id) > 32:
+            return jsonify({'error': 'Invalid batch ID'}), 400
+
+        batch_dir = os.path.join(DOWNLOAD_FOLDER, str(current_user.id), f'batch_{batch_id}')
+        if not os.path.isdir(batch_dir):
+            return jsonify({'error': 'Batch not found'}), 404
+
+        audio_files = sorted([
+            f for f in os.listdir(batch_dir)
+            if f.endswith(('.mp3', '.flac', '.m4a', '.ogg', '.opus', '.wav'))
+        ])
+        if not audio_files:
+            return jsonify({'error': 'No audio files found'}), 404
+
+        conn = get_db()
+        c = conn.cursor(dictionary=True)
+        c.execute('SELECT collection_name FROM url_history WHERE batch_id = %s AND user_id = %s LIMIT 1',
+                  (batch_id, current_user.id))
+        row = c.fetchone()
+        conn.close()
+        collection_name = row['collection_name'] if row else 'batch'
+
+        zip_dir = os.path.join(DOWNLOAD_FOLDER, str(current_user.id), '_zips')
+        os.makedirs(zip_dir, exist_ok=True)
+
+        safe_name = sanitize_filename(f'spotdl_{collection_name[:30]}')
+        zip_path = os.path.join(zip_dir, f'{safe_name}_{batch_id}.zip')
+
+        with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+            for f in audio_files:
+                filepath = os.path.join(batch_dir, f)
+                zf.write(filepath, f)
+
+        file_size = os.path.getsize(zip_path)
+
+        return jsonify({
+            'ok': True,
+            'download_url': f'/api/download/zip/{batch_id}',
+            'filename': f'{safe_name}.zip',
+            'size': file_size,
+            'file_count': len(audio_files),
+        })
+
+    @app.route('/api/download/zip/<batch_id>')
+    @login_required
+    def api_download_zip_file(batch_id):
+        import re as _re
+        batch_id = _re.sub(r'[^a-f0-9]', '', batch_id)
+        if not batch_id or len(batch_id) > 32:
+            abort(404)
+
+        zip_dir = os.path.join(DOWNLOAD_FOLDER, str(current_user.id), '_zips')
+
+        conn = get_db()
+        c = conn.cursor(dictionary=True)
+        c.execute('SELECT collection_name FROM url_history WHERE batch_id = %s AND user_id = %s LIMIT 1',
+                  (batch_id, current_user.id))
+        row = c.fetchone()
+        conn.close()
+        collection_name = row['collection_name'] if row else 'batch'
+
+        safe_name = sanitize_filename(f'spotdl_{collection_name[:30]}')
+        zip_path = os.path.join(zip_dir, f'{safe_name}_{batch_id}.zip')
+
+        if not os.path.isfile(zip_path):
+            abort(404)
+
+        return send_file(
+            zip_path,
+            mimetype='application/zip',
+            as_attachment=True,
+            download_name=f'{safe_name}.zip'
+        )
+
     @app.route('/api/download/batch/<batch_id>/zip')
     @login_required
     def api_batch_zip(batch_id):

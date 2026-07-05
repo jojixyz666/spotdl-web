@@ -164,6 +164,16 @@ export const api = {
     return `${API_BASE}/api/download/batch/${batchId}/zip`
   },
 
+  async createBatchZip(batchId) {
+    const csrf = await this.getCsrf()
+    const res = await request(`/api/download/batch/${batchId}/zip/create`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ _csrf_token: csrf }),
+    })
+    return res.json()
+  },
+
   async getBatchStatus(batchId) {
     const res = await request(`/api/batch/${batchId}/status`)
     return res.json()
