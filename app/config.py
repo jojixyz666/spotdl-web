@@ -3,6 +3,9 @@ import json
 import secrets
 from datetime import timedelta
 
+from dotenv import load_dotenv
+load_dotenv(os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env'))
+
 SECRET_KEY = os.environ.get('SECRET_KEY', secrets.token_hex(32))
 REDIS_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
 HTTPS_ENABLED = os.environ.get('HTTPS_ENABLED', '0') == '1'

@@ -62,7 +62,8 @@ def create_app():
 
     @login_manager.unauthorized_handler
     def unauthorized():
-        if request.path.startswith('/api/'):
+        from flask import request as _req
+        if _req.path.startswith('/api/'):
             return jsonify({'error': 'Login required'}), 401
         return jsonify({'error': 'Login required'}), 401
 
@@ -110,15 +111,19 @@ def create_app():
     app.teardown_appcontext(close_db)
 
     # ── Health Check ──
+    REACT_DIR = '/opt/spotdl-web/static/react'
+
     @app.route('/')
     def index():
         from flask import send_from_directory
-        return send_from_directory(app.static_folder or '/opt/spotdl-web/static/react', 'index.html')
+        return send_from_directory(REACT_DIR, 'index.html')
 
     @app.route('/<path:path>')
     def static_proxy(path):
-        from flask import send_from_directory
+        from flask import send_from_directory, abort as _abort
         import os
+        if path.startswith('api/'):
+            _abort(404)
         static_dir = '/opt/spotdl-web/static/react'
         safe_path = os.path.normpath(path)
         if '..' in safe_path or safe_path.startswith('/'):
