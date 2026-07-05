@@ -26,6 +26,44 @@ from app.sse import sse_broadcast
 from app.cache import download_queue
 from app.csrf import validate_csrf
 
+def _get_duration_seconds(filepath):
+    """Get audio duration in seconds using ffprobe."""
+    try:
+        result = subprocess.run(
+            [FFMPEG_BIN.replace('ffmpeg', 'ffprobe'), '-v', 'error',
+             '-show_entries', 'format=duration',
+             '-of', 'csv=p=0', filepath],
+            capture_output=True, text=True, timeout=10
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            return float(result.stdout.strip())
+    except Exception:
+        pass
+    return 0
+
+
+def _is_preview_file(filepath, min_duration=35):
+    """Check if a file is a short preview (< min_duration seconds)."""
+    duration = _get_duration_seconds(filepath)
+    return 0 < duration < min_duration, duration
+
+
+def _find_file_in_dir(directory, safe_name, audio_format):
+    """Find downloaded file in directory with exact/prefix/recent matching."""
+    expected = f'{safe_name}.{audio_format}'
+    if os.path.exists(os.path.join(directory, expected)):
+        return expected
+    for f in os.listdir(directory):
+        if f.startswith(sanitize_filename(safe_name.split(' - ')[0])) and f.endswith(('.mp3', '.wav', '.flac', '.m4a', '.ogg', '.opus')):
+            return f
+    for f in os.listdir(directory):
+        if f.endswith(('.mp3', '.wav', '.flac', '.m4a', '.ogg', '.opus')):
+            fpath = os.path.join(directory, f)
+            if os.path.getmtime(fpath) > (datetime.now().timestamp() - 180):
+                return f
+    return None
+
+
 # ──────────────────────────────────────────────
 # Thread pool & semaphore
 # ──────────────────────────────────────────────
@@ -138,7 +176,62 @@ def run_download(download_id, spotify_url, user_id, title, artist, image_url, au
             with active_processes_lock:
                 active_processes.pop(download_id, None)
 
-    # Strategy 1: YouTube with multiple player clients and search variations
+    def _mark_completed(found_file, message='Downloaded.'):
+        conn = get_db()
+        c = conn.cursor()
+        c.execute('UPDATE downloads SET status = %s, filename = %s, message = %s WHERE id = %s',
+                  ('completed', found_file, message, download_id))
+        conn.close()
+
+    def _save_preview(preview_path, content):
+        with open(preview_path, 'wb') as f:
+            f.write(content)
+        _mark_completed(f'{safe_name}.{audio_format}', 'Spotify preview (30s) - full track unavailable.')
+
+    # ── Check if file already exists on disk ──
+    existing = _find_file_in_dir(output_dir, safe_name, audio_format)
+    if existing:
+        is_short, duration = _is_preview_file(os.path.join(output_dir, existing))
+        if not is_short:
+            _mark_completed(existing, f'File already exists ({int(duration)}s).')
+            return
+        else:
+            os.remove(os.path.join(output_dir, existing))
+
+    # ── Strategy 1: SoundCloud (best chance for full songs) ──
+    sc_queries = [
+        f'scsearch3:{artist} - {title}',
+        f'scsearch3:{title} {artist}',
+        f'scsearch3:{title}',
+    ]
+    for sc_query in sc_queries:
+        if _is_cancelled():
+            return
+        try:
+            sc_template = os.path.join(output_dir, f'{safe_name}.%(ext)s')
+            cmd = [
+                YTDLP_BIN, sc_query,
+                '--extract-audio', '--audio-format', audio_format,
+                *bitrate_args,
+                '--output', sc_template, '--no-playlist',
+                '--ffmpeg-location', FFMPEG_BIN, '--quiet', '--no-warnings',
+                '--retries', '3',
+            ]
+            result = _run_cmd(cmd, 120)
+            if result.returncode == 0:
+                found = _find_file_in_dir(output_dir, safe_name, audio_format)
+                if found:
+                    fpath = os.path.join(output_dir, found)
+                    is_short, duration = _is_preview_file(fpath)
+                    if not is_short:
+                        _mark_completed(found, f'Downloaded from SoundCloud ({int(duration)}s).')
+                        return
+                    else:
+                        os.remove(fpath)
+        except Exception:
+            continue
+
+    # ── Strategy 2: YouTube ──
     clients = ['web', 'web_creator', 'ios', 'mweb', 'tv']
     search_queries = [
         f'ytsearch3:{artist} - {title}',
@@ -146,20 +239,6 @@ def run_download(download_id, spotify_url, user_id, title, artist, image_url, au
         f'ytsearch3:{title} {artist}',
         f'ytsearch3:{title}',
     ]
-
-    def _find_downloaded_file():
-        expected = f'{safe_name}.{audio_format}'
-        if os.path.exists(os.path.join(output_dir, expected)):
-            return expected
-        for f in os.listdir(output_dir):
-            if f.startswith(sanitize_filename(artist)) and f.endswith(('.mp3', '.wav', '.flac', '.m4a', '.ogg', '.opus')):
-                return f
-        for f in os.listdir(output_dir):
-            if f.endswith(('.mp3', '.wav', '.flac', '.m4a', '.ogg', '.opus')):
-                fpath = os.path.join(output_dir, f)
-                if os.path.getmtime(fpath) > (datetime.now().timestamp() - 180):
-                    return f
-        return None
 
     for query in search_queries:
         if _is_cancelled():
@@ -169,127 +248,65 @@ def run_download(download_id, spotify_url, user_id, title, artist, image_url, au
                 return
             try:
                 cmd = [
-                    YTDLP_BIN,
-                    query,
-                    '--extract-audio',
-                    '--audio-format', audio_format,
+                    YTDLP_BIN, query,
+                    '--extract-audio', '--audio-format', audio_format,
                     *bitrate_args,
-                    '--output', output_template,
-                    '--no-playlist',
-                    '--no-overwrites',
-                    '--ffmpeg-location', FFMPEG_BIN,
-                    '--quiet',
-                    '--no-warnings',
+                    '--output', output_template, '--no-playlist', '--no-overwrites',
+                    '--ffmpeg-location', FFMPEG_BIN, '--quiet', '--no-warnings',
                     '--extractor-args', f'youtube:player_client={client}',
-                    '--sleep-requests', '1',
-                    '--retries', '3',
+                    '--sleep-requests', '1', '--retries', '3',
                 ]
                 result = _run_cmd(cmd, 180)
-
                 if result.returncode == 0:
-                    found = _find_downloaded_file()
+                    found = _find_file_in_dir(output_dir, safe_name, audio_format)
                     if found:
-                        conn = get_db()
-                        c = conn.cursor()
-                        c.execute('UPDATE downloads SET status = %s, filename = %s, message = %s WHERE id = %s',
-                                  ('completed', found, 'Download completed.', download_id))
-                        conn.close()
-                        return
-            except subprocess.TimeoutExpired:
-                continue
+                        fpath = os.path.join(output_dir, found)
+                        is_short, duration = _is_preview_file(fpath)
+                        if not is_short:
+                            _mark_completed(found, f'Downloaded ({int(duration)}s).')
+                            return
+                        else:
+                            os.remove(fpath)
             except Exception:
                 continue
 
-    # Strategy 1b: YouTube with --default-search
+    # ── Strategy 2b: YouTube fallback ──
     if not _is_cancelled():
         try:
             cmd = [
-                YTDLP_BIN,
-                f'ytsearch1:{artist} - {title}',
-                '--extract-audio',
-                '--audio-format', audio_format,
+                YTDLP_BIN, f'ytsearch1:{artist} - {title}',
+                '--extract-audio', '--audio-format', audio_format,
                 *bitrate_args,
-                '--output', output_template,
-                '--no-playlist',
-                '--no-overwrites',
-                '--ffmpeg-location', FFMPEG_BIN,
-                '--quiet',
-                '--no-warnings',
+                '--output', output_template, '--no-playlist', '--no-overwrites',
+                '--ffmpeg-location', FFMPEG_BIN, '--quiet', '--no-warnings',
                 '--default-search', 'ytsearch',
-                '--retries', '5',
-                '--fragment-retries', '5',
-                '--socket-timeout', '30',
+                '--retries', '5', '--fragment-retries', '5', '--socket-timeout', '30',
             ]
             result = _run_cmd(cmd, 240)
             if result.returncode == 0:
-                found = _find_downloaded_file()
+                found = _find_file_in_dir(output_dir, safe_name, audio_format)
                 if found:
-                    conn = get_db()
-                    c = conn.cursor()
-                    c.execute('UPDATE downloads SET status = %s, filename = %s, message = %s WHERE id = %s',
-                              ('completed', found, 'Download completed.', download_id))
-                    conn.close()
-                    return
+                    fpath = os.path.join(output_dir, found)
+                    is_short, duration = _is_preview_file(fpath)
+                    if not is_short:
+                        _mark_completed(found, f'Downloaded ({int(duration)}s).')
+                        return
+                    else:
+                        os.remove(fpath)
         except Exception:
             pass
 
-    # Strategy 2: SoundCloud
-    if _is_cancelled():
-        return
-    sc_queries = [
-        f'scsearch1:{artist} - {title}',
-        f'scsearch1:{title} {artist}',
-        f'scsearch1:{title}',
-    ]
-    for sc_query in sc_queries:
-        if _is_cancelled():
-            return
-        try:
-            sc_template = os.path.join(output_dir, f'{safe_name}.%(ext)s')
-            cmd = [
-                YTDLP_BIN,
-                sc_query,
-                '--extract-audio',
-                '--audio-format', audio_format,
-                *bitrate_args,
-                '--output', sc_template,
-                '--no-playlist',
-                '--ffmpeg-location', FFMPEG_BIN,
-                '--quiet',
-                '--no-warnings',
-                '--retries', '3',
-            ]
-            result = _run_cmd(cmd, 90)
-            if result.returncode == 0:
-                found = _find_downloaded_file()
-                if found:
-                    conn = get_db()
-                    c = conn.cursor()
-                    c.execute('UPDATE downloads SET status = %s, filename = %s, message = %s WHERE id = %s',
-                              ('completed', found, 'Downloaded from SoundCloud.', download_id))
-                    conn.close()
-                    return
-        except Exception:
-            pass
-
-    # Strategy 3: Spotify preview fallback (30s preview)
+    # ── Strategy 3: Spotify preview (last resort) ──
     if _is_cancelled():
         return
     metadata = fetch_spotify_metadata(spotify_url)
     if metadata and metadata.get('preview_url'):
         try:
-            preview_path = os.path.join(output_dir, f'{safe_name}.{audio_format}')
             r = requests.get(metadata['preview_url'], timeout=15)
             if r.status_code == 200 and len(r.content) > 10000:
                 if _is_cancelled():
                     return
-                with open(preview_path, 'wb') as f:
-                    f.write(r.content)
-                conn = get_db()
-                c = conn.cursor()
-                c.execute('UPDATE downloads SET status = %s, filename = %s, message = %s WHERE id = %s',
-                          ('completed', f'{safe_name}.{audio_format}', 'Spotify preview only (30s) - full track unavailable.', download_id))
-                conn.close()
+                _save_preview(os.path.join(output_dir, f'{safe_name}.{audio_format}'), r.content)
                 return
         except Exception:
             pass
@@ -297,7 +314,6 @@ def run_download(download_id, spotify_url, user_id, title, artist, image_url, au
     if _is_cancelled():
         return
 
-    # All failed
     conn = get_db()
     c = conn.cursor()
     c.execute('UPDATE downloads SET status = %s, message = %s WHERE id = %s',
@@ -350,7 +366,62 @@ def run_batch_download(download_id, spotify_url, user_id, title, artist, image_u
             with active_processes_lock:
                 active_processes.pop(download_id, None)
 
-    # Strategy 1: YouTube with multiple search variations
+    def _mark_completed(found_file, message='Downloaded.'):
+        conn = get_db()
+        c = conn.cursor()
+        c.execute('UPDATE downloads SET status = %s, filename = %s, message = %s WHERE id = %s',
+                  ('completed', found_file, message, download_id))
+        conn.close()
+
+    def _save_preview(preview_path, content):
+        with open(preview_path, 'wb') as f:
+            f.write(content)
+        _mark_completed(f'{safe_name}.{audio_format}', 'Spotify preview (30s) - full track unavailable.')
+
+    # ── Check if file already exists on disk ──
+    existing = _find_file_in_dir(batch_dir, safe_name, audio_format)
+    if existing:
+        is_short, duration = _is_preview_file(os.path.join(batch_dir, existing))
+        if not is_short:
+            _mark_completed(existing, f'File already exists ({int(duration)}s).')
+            return
+        else:
+            os.remove(os.path.join(batch_dir, existing))
+
+    # ── Strategy 1: SoundCloud (best chance for full songs) ──
+    sc_queries = [
+        f'scsearch3:{artist} - {title}',
+        f'scsearch3:{title} {artist}',
+        f'scsearch3:{title}',
+    ]
+    for sc_query in sc_queries:
+        if _is_cancelled():
+            return
+        try:
+            sc_template = os.path.join(batch_dir, f'{safe_name}.%(ext)s')
+            cmd = [
+                YTDLP_BIN, sc_query,
+                '--extract-audio', '--audio-format', audio_format,
+                *bitrate_args,
+                '--output', sc_template, '--no-playlist',
+                '--ffmpeg-location', FFMPEG_BIN, '--quiet', '--no-warnings',
+                '--retries', '3',
+            ]
+            result = _run_cmd(cmd, 120)
+            if result.returncode == 0:
+                found = _find_file_in_dir(batch_dir, safe_name, audio_format)
+                if found:
+                    fpath = os.path.join(batch_dir, found)
+                    is_short, duration = _is_preview_file(fpath)
+                    if not is_short:
+                        _mark_completed(found, f'Downloaded from SoundCloud ({int(duration)}s).')
+                        return
+                    else:
+                        os.remove(fpath)
+        except Exception:
+            continue
+
+    # ── Strategy 2: YouTube ──
     clients = ['web', 'web_creator', 'ios', 'mweb', 'tv']
     search_queries = [
         f'ytsearch3:{artist} - {title}',
@@ -358,20 +429,6 @@ def run_batch_download(download_id, spotify_url, user_id, title, artist, image_u
         f'ytsearch3:{title} {artist}',
         f'ytsearch3:{title}',
     ]
-
-    def _find_batch_file():
-        expected = f'{safe_name}.{audio_format}'
-        if os.path.exists(os.path.join(batch_dir, expected)):
-            return expected
-        for f in os.listdir(batch_dir):
-            if f.startswith(sanitize_filename(artist)) and f.endswith(('.mp3', '.wav', '.flac', '.m4a', '.ogg', '.opus')):
-                return f
-        for f in os.listdir(batch_dir):
-            if f.endswith(('.mp3', '.wav', '.flac', '.m4a', '.ogg', '.opus')):
-                fpath = os.path.join(batch_dir, f)
-                if os.path.getmtime(fpath) > (datetime.now().timestamp() - 180):
-                    return f
-        return None
 
     for query in search_queries:
         if _is_cancelled():
@@ -381,91 +438,55 @@ def run_batch_download(download_id, spotify_url, user_id, title, artist, image_u
                 return
             try:
                 cmd = [
-                    YTDLP_BIN,
-                    query,
+                    YTDLP_BIN, query,
                     '--extract-audio', '--audio-format', audio_format,
                     *bitrate_args,
                     '--output', output_template, '--no-playlist', '--no-overwrites',
                     '--ffmpeg-location', FFMPEG_BIN, '--quiet', '--no-warnings',
                     '--extractor-args', f'youtube:player_client={client}',
-                    '--sleep-requests', '1',
-                    '--retries', '3',
+                    '--sleep-requests', '1', '--retries', '3',
                 ]
                 result = _run_cmd(cmd, 180)
                 if result.returncode == 0:
-                    found = _find_batch_file()
+                    found = _find_file_in_dir(batch_dir, safe_name, audio_format)
                     if found:
-                        conn = get_db()
-                        c = conn.cursor()
-                        c.execute('UPDATE downloads SET status = %s, filename = %s, message = %s WHERE id = %s',
-                                  ('completed', found, 'Downloaded.', download_id))
-                        conn.close()
-                        return
+                        fpath = os.path.join(batch_dir, found)
+                        is_short, duration = _is_preview_file(fpath)
+                        if not is_short:
+                            _mark_completed(found, f'Downloaded ({int(duration)}s).')
+                            return
+                        else:
+                            os.remove(fpath)
             except Exception:
                 continue
 
-    # Strategy 1b: YouTube with retries
+    # ── Strategy 2b: YouTube fallback ──
     if not _is_cancelled():
         try:
             cmd = [
-                YTDLP_BIN,
-                f'ytsearch1:{artist} - {title}',
+                YTDLP_BIN, f'ytsearch1:{artist} - {title}',
                 '--extract-audio', '--audio-format', audio_format,
                 *bitrate_args,
                 '--output', output_template, '--no-playlist', '--no-overwrites',
                 '--ffmpeg-location', FFMPEG_BIN, '--quiet', '--no-warnings',
                 '--default-search', 'ytsearch',
-                '--retries', '5',
-                '--fragment-retries', '5',
-                '--socket-timeout', '30',
+                '--retries', '5', '--fragment-retries', '5', '--socket-timeout', '30',
             ]
             result = _run_cmd(cmd, 240)
             if result.returncode == 0:
-                found = _find_batch_file()
+                found = _find_file_in_dir(batch_dir, safe_name, audio_format)
                 if found:
-                    conn = get_db()
-                    c = conn.cursor()
-                    c.execute('UPDATE downloads SET status = %s, filename = %s, message = %s WHERE id = %s',
-                              ('completed', found, 'Downloaded.', download_id))
-                    conn.close()
-                    return
+                    fpath = os.path.join(batch_dir, found)
+                    is_short, duration = _is_preview_file(fpath)
+                    if not is_short:
+                        _mark_completed(found, f'Downloaded ({int(duration)}s).')
+                        return
+                    else:
+                        os.remove(fpath)
         except Exception:
             pass
 
-    # Strategy 2: SoundCloud
-    if _is_cancelled():
-        return
-    sc_queries = [
-        f'scsearch1:{artist} - {title}',
-        f'scsearch1:{title} {artist}',
-        f'scsearch1:{title}',
-    ]
-    for sc_query in sc_queries:
-        if _is_cancelled():
-            return
-        try:
-            cmd = [
-                YTDLP_BIN, sc_query,
-                '--extract-audio', '--audio-format', audio_format,
-                *bitrate_args,
-                '--output', output_template, '--no-playlist',
-                '--ffmpeg-location', FFMPEG_BIN, '--quiet', '--no-warnings',
-                '--retries', '3',
-            ]
-            result = _run_cmd(cmd, 90)
-            if result.returncode == 0:
-                found = _find_batch_file()
-                if found:
-                    conn = get_db()
-                    c = conn.cursor()
-                    c.execute('UPDATE downloads SET status = %s, filename = %s, message = %s WHERE id = %s',
-                              ('completed', found, 'Downloaded from SoundCloud.', download_id))
-                    conn.close()
-                    return
-        except Exception:
-            pass
-
-    # Strategy 3: Spotify preview
+    # ── Strategy 3: Spotify preview (last resort) ──
     if _is_cancelled():
         return
     metadata = fetch_spotify_metadata(spotify_url)
@@ -475,13 +496,7 @@ def run_batch_download(download_id, spotify_url, user_id, title, artist, image_u
             if r.status_code == 200 and len(r.content) > 10000:
                 if _is_cancelled():
                     return
-                with open(final_output, 'wb') as f:
-                    f.write(r.content)
-                conn = get_db()
-                c = conn.cursor()
-                c.execute('UPDATE downloads SET status = %s, filename = %s, message = %s WHERE id = %s',
-                          ('completed', f'{safe_name}.{audio_format}', 'Spotify preview only (30s) - full track unavailable.', download_id))
-                conn.close()
+                _save_preview(final_output, r.content)
                 return
         except Exception:
             pass
@@ -532,10 +547,8 @@ def run_batch_download_progress(download_id, spotify_url, user_id, title, artist
 def _check_batch_complete(user_id, batch_id):
     conn = get_db()
     c = conn.cursor(dictionary=True)
-    c.execute('SELECT status FROM downloads WHERE user_id = %s AND id IN (SELECT download_id FROM downloads WHERE user_id = %s)',
-              (user_id, user_id))
     c.execute('''SELECT d.status FROM downloads d
-                 JOIN url_history h ON d.spotify_url = h.spotify_url
+                 JOIN url_history h ON d.spotify_url = h.spotify_url AND d.user_id = h.user_id
                  WHERE d.user_id = %s AND h.batch_id = %s''',
               (user_id, batch_id))
     rows = c.fetchall()
@@ -670,6 +683,14 @@ def register_download_routes(app, limiter):
                       (current_user.id, t_url, t_title[:255], t_artist[:255], t_image[:1024], 'pending'))
             did = c.lastrowid
             conn.close()
+
+            if not from_history:
+                conn = get_db()
+                c = conn.cursor()
+                c.execute('INSERT INTO url_history (user_id, spotify_url, content_type, collection_name, image_url, track_data, batch_id) VALUES (%s, %s, %s, %s, %s, %s, %s)',
+                          (current_user.id, t_url, 'track', collection_name, t_image, json.dumps([t]), batch_id))
+                conn.close()
+
             download_ids.append(did)
             sse_broadcast(current_user.id, 'download_update', {'id': did, 'title': t_title, 'artist': t_artist, 'status': 'pending'})
 
@@ -693,7 +714,7 @@ def register_download_routes(app, limiter):
         c = conn.cursor(dictionary=True)
         c.execute('''SELECT d.id, d.title, d.artist, d.status, d.filename, d.image_url, d.message
                      FROM downloads d
-                     JOIN url_history h ON d.spotify_url = h.spotify_url
+                     JOIN url_history h ON d.spotify_url = h.spotify_url AND d.user_id = h.user_id
                      WHERE d.user_id = %s AND h.batch_id = %s
                      ORDER BY d.id''',
                   (current_user.id, batch_id))

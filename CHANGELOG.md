@@ -1,5 +1,36 @@
 # Changelog
 
+## [2.7.0] - 2026-07-05
+
+### Fixed
+
+- **Preview Detection & Auto-Retry**
+  - After download, check file duration with ffprobe
+  - If < 35 seconds = preview, delete and retry with SoundCloud first
+  - Only falls back to Spotify preview if all sources fail
+  - Messages show actual duration (e.g. "Downloaded from SoundCloud (191s)")
+
+- **Skip Re-Download (File Cache)**
+  - Before downloading, check if file already exists on disk
+  - If file exists and is full song (>35s), mark as completed immediately ("File already exists")
+  - If file exists but is a preview (<35s), delete and re-download for full version
+
+- **SoundCloud Priority**
+  - SoundCloud moved to Strategy 1 (was Strategy 2) — best chance for full songs
+  - Search queries upgraded to `scsearch3` (3 results per query)
+  - Timeout increased 90s → 120s
+
+- **Download Strategy Order Changed**
+  1. File cache check (skip if exists)
+  2. SoundCloud (3 queries × 3 results)
+  3. YouTube (4 queries × 5 clients)
+  4. Spotify preview (last resort, 30s)
+
+### Changed
+
+- Shared helper functions: `_get_duration_seconds()`, `_is_preview_file()`, `_find_file_in_dir()`
+- Both `run_download` and `run_batch_download` use same improved logic
+
 ## [2.6.0] - 2026-07-05
 
 ### Added
