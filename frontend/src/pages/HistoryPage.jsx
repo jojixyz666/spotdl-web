@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../lib/api'
+import { useToast } from '../lib/toast'
 import { timeAgo } from '../lib/utils'
 import { motion } from 'framer-motion'
-import { Clock, Music, Disc3, List, ChevronRight, ChevronLeft } from 'lucide-react'
+import { Clock, Music, Disc3, List, ChevronRight, ChevronLeft, Trash2, X, Check } from 'lucide-react'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
@@ -12,16 +13,18 @@ const TYPE_ICONS = { track: Music, album: Disc3, playlist: List }
 const TYPE_LABELS = { track: 'Track', album: 'Album', playlist: 'Playlist' }
 
 export default function HistoryPage() {
+  const toast = useToast()
   const [items, setItems] = useState([])
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [deletingId, setDeletingId] = useState(null)
 
   const load = useCallback(async (p) => {
     setLoading(true)
     try {
       const data = await api.getHistory(p)
-      setItems(data.items || [])
+      setItems(data.history || data.items || [])
       setHasMore(data.has_more || false)
       setPage(p)
     } catch {}
@@ -29,6 +32,21 @@ export default function HistoryPage() {
   }, [])
 
   useEffect(() => { load(1) }, [load])
+
+  const handleDelete = async (id) => {
+    try {
+      const res = await api.deleteHistory(id)
+      if (res.error) {
+        toast.error(res.error)
+      } else {
+        setItems(prev => prev.filter(item => item.id !== id))
+        toast.success('History deleted')
+      }
+    } catch {
+      toast.error('Delete failed')
+    }
+    setDeletingId(null)
+  }
 
   return (
     <div className="space-y-6">
@@ -60,30 +78,52 @@ export default function HistoryPage() {
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: i * 0.03 }}
                   >
-                    <Link
-                      to={`/history/${item.id}`}
-                      className="flex items-center gap-4 px-6 py-4 hover:bg-nb-secondary/50 transition-all group"
-                    >
-                      {item.image_url ? (
-                        <img src={item.image_url} className="w-12 h-12 rounded-nb object-cover border-2 border-nb-border shadow-nb-sm flex-shrink-0" alt="" />
-                      ) : (
-                        <div className="w-12 h-12 rounded-nb bg-nb-surface2 border-2 border-nb-border flex items-center justify-center flex-shrink-0">
-                          <Icon size={20} className="text-nb-foreground" />
+                    <div className="flex items-center gap-4 px-6 py-4 hover:bg-nb-secondary/50 transition-all group">
+                      <Link to={`/history/${item.id}`} className="flex items-center gap-4 flex-1 min-w-0">
+                        {item.image_url ? (
+                          <img src={item.image_url} className="w-12 h-12 rounded-nb object-cover border-2 border-nb-border shadow-nb-sm flex-shrink-0" alt="" />
+                        ) : (
+                          <div className="w-12 h-12 rounded-nb bg-nb-surface2 border-2 border-nb-border flex items-center justify-center flex-shrink-0">
+                            <Icon size={20} className="text-nb-foreground" />
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-heading font-semibold text-nb-foreground truncate group-hover:text-nb-main transition-colors">
+                            {item.collection_name || 'Unknown'}
+                          </p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <Badge variant="neutral" className="text-[10px]">{TYPE_LABELS[item.content_type] || item.content_type}</Badge>
+                          </div>
                         </div>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <p className="font-heading font-semibold text-nb-foreground truncate group-hover:text-nb-main transition-colors">
-                          {item.collection_name || 'Unknown'}
-                        </p>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <Badge variant="neutral" className="text-[10px]">{TYPE_LABELS[item.content_type] || item.content_type}</Badge>
+                        <div className="text-right flex-shrink-0">
+                          <p className="text-xs text-nb-muted2 font-heading">{timeAgo(item.created_at)}</p>
                         </div>
+                        <ChevronRight size={16} className="text-nb-muted2 group-hover:text-nb-foreground transition-colors flex-shrink-0" />
+                      </Link>
+
+                      <div className="flex-shrink-0">
+                        {deletingId === item.id ? (
+                          <div className="flex items-center gap-1">
+                            <Button variant="danger" size="icon-sm" onClick={() => handleDelete(item.id)}>
+                              <Check size={14} />
+                            </Button>
+                            <Button variant="ghost" size="icon-sm" onClick={() => setDeletingId(null)}>
+                              <X size={14} />
+                            </Button>
+                          </div>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            onClick={() => setDeletingId(item.id)}
+                            className="text-nb-foreground hover:text-nb-danger opacity-0 group-hover:opacity-100 transition-opacity"
+                            title="Delete history"
+                          >
+                            <Trash2 size={14} />
+                          </Button>
+                        )}
                       </div>
-                      <div className="text-right flex-shrink-0">
-                        <p className="text-xs text-nb-muted2 font-heading">{timeAgo(item.created_at)}</p>
-                      </div>
-                      <ChevronRight size={16} className="text-nb-muted2 group-hover:text-nb-foreground transition-colors flex-shrink-0" />
-                    </Link>
+                    </div>
                   </motion.div>
                 )
               })

@@ -4,7 +4,7 @@ import { api } from '../lib/api'
 import { useToast } from '../lib/toast'
 import { formatDuration, timeAgo } from '../lib/utils'
 import { motion } from 'framer-motion'
-import { ArrowLeft, Download, Play, Pause, Loader2, Disc3, List, Music, PackageOpen } from 'lucide-react'
+import { ArrowLeft, Download, Play, Pause, Loader2, Disc3, List, Music, PackageOpen, Trash2, X, Check } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
 import { Card, CardContent, CardHeader } from '../components/ui/Card'
@@ -18,6 +18,7 @@ export default function HistoryDetailPage() {
   const [selected, setSelected] = useState(new Set())
   const [zipAvailable, setZipAvailable] = useState(false)
   const [playingId, setPlayingId] = useState(null)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const audioRef = useRef(null)
 
   const loadDetail = () => {
@@ -50,6 +51,20 @@ export default function HistoryDetailPage() {
   }
 
   useEffect(() => { loadDetail() }, [id])
+
+  const handleDelete = async () => {
+    try {
+      const res = await api.deleteHistory(id)
+      if (res.error) {
+        toast.error(res.error)
+      } else {
+        toast.success('History deleted')
+        window.location.href = '/history'
+      }
+    } catch {
+      toast.error('Delete failed')
+    }
+  }
 
   const togglePreview = (idx, src) => {
     if (audioRef.current) {
@@ -133,9 +148,21 @@ export default function HistoryDetailPage() {
 
   return (
     <div className="space-y-6">
-      <Link to="/history" className="inline-flex items-center gap-2 text-nb-muted hover:text-nb-foreground transition-colors text-sm font-heading font-semibold">
-        <ArrowLeft size={16} /> Back to History
-      </Link>
+      <div className="flex items-center justify-between">
+        <Link to="/history" className="inline-flex items-center gap-2 text-nb-muted hover:text-nb-foreground transition-colors text-sm font-heading font-semibold">
+          <ArrowLeft size={16} /> Back to History
+        </Link>
+        {confirmDelete ? (
+          <div className="flex items-center gap-1">
+            <Button variant="danger" size="sm" onClick={handleDelete}><Check size={14} /> Delete</Button>
+            <Button variant="ghost" size="sm" onClick={() => setConfirmDelete(false)}><X size={14} /> Cancel</Button>
+          </div>
+        ) : (
+          <Button variant="ghost" size="sm" onClick={() => setConfirmDelete(true)} className="text-nb-foreground hover:text-nb-danger">
+            <Trash2 size={14} /> Delete
+          </Button>
+        )}
+      </div>
 
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
         <Card>

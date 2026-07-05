@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Download, CheckCircle, XCircle, ChevronDown, ChevronUp, Loader2, X } from 'lucide-react'
+import { Download, CheckCircle, XCircle, ChevronDown, ChevronUp, Loader2, X, Ban } from 'lucide-react'
 import { cn } from '../lib/utils'
 
 export default function DownloadToast() {
@@ -94,6 +94,27 @@ export default function DownloadToast() {
     } catch {}
   }, [])
 
+  const handleCancelAll = useCallback(async () => {
+    try {
+      const res = await fetch('/api/cancel/batch', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+      })
+      if (res.ok) {
+        setItems(prev => prev.map(d =>
+          (d.status === 'pending' || d.status === 'processing' || d.status === 'searching')
+            ? { ...d, status: 'cancelled' } : d
+        ))
+        setTimeout(() => {
+          setItems(prev => prev.filter(d =>
+            d.status !== 'cancelled'
+          ))
+        }, 3000)
+      }
+    } catch {}
+  }, [])
+
   if (items.length === 0) return null
 
   const processing = items.filter(d => d.status === 'pending' || d.status === 'processing' || d.status === 'searching')
@@ -126,7 +147,16 @@ export default function DownloadToast() {
           </div>
           <div className="flex items-center gap-2">
             {processing.length > 0 && (
-              <span className="w-2 h-2 rounded-full bg-nb-main animate-pulse" />
+              <>
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleCancelAll() }}
+                  className="text-[10px] font-heading font-bold text-nb-danger hover:text-nb-danger/80 transition-colors"
+                  title="Cancel all active downloads"
+                >
+                  Cancel All
+                </button>
+                <span className="w-2 h-2 rounded-full bg-nb-main animate-pulse" />
+              </>
             )}
             {expanded ? <ChevronDown size={14} className="text-nb-muted" /> : <ChevronUp size={14} className="text-nb-muted" />}
           </div>
@@ -177,7 +207,7 @@ export default function DownloadToast() {
                         {isActive && (
                           <button
                             onClick={(e) => { e.stopPropagation(); handleCancel(item.id) }}
-                            className="p-0.5 rounded-nb border-2 border-transparent text-nb-foreground hover:bg-nb-danger hover:text-nb-danger-foreground hover:border-nb-border transition-all sm:opacity-0 sm:group-hover/item:opacity-100"
+                            className="p-0.5 rounded-nb border-2 border-transparent text-nb-foreground hover:bg-nb-danger hover:text-nb-danger-foreground hover:border-nb-border transition-all"
                             title="Cancel"
                           >
                             <X size={12} />

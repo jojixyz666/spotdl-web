@@ -4,7 +4,7 @@ import { useToast } from '../lib/toast'
 import { api } from '../lib/api'
 import { formatDuration, timeAgo } from '../lib/utils'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Search, Play, Pause, Download, Music, ExternalLink, Check, Loader2, Trash2, X, XCircle } from 'lucide-react'
+import { Search, Play, Pause, Download, Music, ExternalLink, Check, Loader2, Trash2, X, XCircle, Ban } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Badge } from '../components/ui/Badge'
@@ -193,6 +193,23 @@ export default function DashboardPage() {
     }
   }
 
+  const handleCancelAll = async () => {
+    try {
+      const res = await api.cancelAllDownloads()
+      if (res.error) {
+        toast.error(res.error)
+      } else {
+        setDownloads(prev => prev.map(d =>
+          (d.status === 'pending' || d.status === 'processing' || d.status === 'searching')
+            ? { ...d, status: 'cancelled' } : d
+        ))
+        toast.success(res.message || 'All downloads cancelled')
+      }
+    } catch {
+      toast.error('Cancel failed')
+    }
+  }
+
   const togglePreview = (id, src) => {
     if (previewAudio.current) {
       previewAudio.current.pause()
@@ -287,9 +304,16 @@ export default function DashboardPage() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>Recent Downloads</CardTitle>
-              {downloads.length > 0 && (
-                <Badge variant="neutral">{downloads.length}</Badge>
-              )}
+              <div className="flex items-center gap-2">
+                {downloads.some(d => d.status === 'pending' || d.status === 'processing' || d.status === 'searching') && (
+                  <Button variant="ghost" size="sm" onClick={handleCancelAll} className="text-nb-danger hover:bg-nb-danger/10">
+                    <XCircle size={14} /> Cancel All
+                  </Button>
+                )}
+                {downloads.length > 0 && (
+                  <Badge variant="neutral">{downloads.length}</Badge>
+                )}
+              </div>
             </div>
           </CardHeader>
           <div className="divide-y-2 divide-nb-border">
@@ -530,7 +554,7 @@ function DownloadItem({ data, onDelete, onCancel }) {
               variant="ghost"
               size="icon-sm"
               onClick={() => onCancel(data.id)}
-              className="text-nb-muted2 hover:text-nb-danger sm:opacity-0 sm:group-hover:opacity-100"
+              className="text-nb-foreground hover:text-nb-danger hover:bg-nb-danger/10"
               title="Cancel download"
             >
               <XCircle size={14} />

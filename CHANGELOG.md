@@ -1,5 +1,84 @@
 # Changelog
 
+## [2.5.1] - 2026-07-05
+
+### Fixed
+
+- **Delete History**
+  - Added delete button to HistoryPage (hover reveal with confirm/cancel)
+  - Added delete button to HistoryDetailPage header
+  - Added `api.deleteHistory(id)` method
+  - Backend DELETE endpoint already existed
+
+- **Improved Download Quality (30s Preview Fix)**
+  - YouTube search upgraded: `ytsearch1:` → `ytsearch3:` (3 results per query) with 4 clients × 4 queries = up to 48 attempts
+  - Added `--retries 3`, `--sleep-requests 1`, `--socket-timeout 30` to YouTube search
+  - YouTube timeout increased 120s → 180s
+  - Added `ytsearch` default-search fallback with 240s timeout, 5 retries, fragment retries
+  - SoundCloud search upgraded: 3 query variations with `--retries 3`, timeout 60s → 90s
+  - Added `_find_downloaded_file()` helper: checks expected name → prefix match → recent mtime
+
+- **Cancel Button Not Stopping Downloads**
+  - Added `_kill_process()` helper: `os.killpg(SIGTERM)` + `proc.terminate()` + `SIGKILL` + `proc.kill()`
+  - Kills entire yt-dlp process group, not just parent process
+  - Applied to both single and batch cancel
+
+- **Robust File Detection**
+  - `_find_downloaded_file()` checks: exact expected name → prefix match → recent mtime (180s)
+  - Fixes race condition where wrong file was returned from output directory
+
+### Changed
+
+- DownloadToast border upgraded from 2px to 3px
+- DownloadToast: "Cancel All" button in header
+- DownloadToast: All status icons use `text-nb-foreground`/`text-nb-muted` for contrast
+
+## [2.5.0] - 2026-07-05
+
+### Added
+
+- **Download Manager Page** (`/downloads`)
+  - Dedicated page to track and manage all downloads
+  - Real-time SSE updates for live status
+  - Progress bar for each active download
+  - Batch progress summary (X of Y completed with percentage)
+  - Stats cards: Active, Completed, Failed, Total
+  - Cancel individual or Cancel All downloads
+  - Refresh button to reload download list
+  - Expand/collapse download list
+  - Direct file download button for completed downloads
+  - Delete with confirmation for completed downloads
+
+- **Batch Cancel Endpoint** (`POST /api/cancel/batch`)
+  - Cancels all active (pending/processing/searching) downloads at once
+  - Kills subprocesses and updates DB status
+  - SSE broadcast for each cancelled download
+
+- **Batch Status Endpoint** (`GET /api/batch/<batch_id>/status`)
+  - Returns all downloads in a batch with individual status
+  - Provides progress percentage, zip availability
+  - Used by Download Manager for batch tracking
+
+- **Auto-Zip on Batch Complete**
+  - Backend sends `batch_complete` SSE event when all batch downloads finish
+  - Frontend can auto-trigger zip download when batch is done
+
+- **Concurrent Downloads**
+  - 5 concurrent downloads by default (configurable via admin settings)
+  - ThreadPoolExecutor with semaphore-based concurrency control
+  - Each batch download runs in parallel, not sequential
+
+### Fixed
+
+- **Cancel Button Visibility**
+  - DashboardPage: removed `sm:opacity-0 sm:group-hover:opacity-100` so cancel button always visible
+  - DownloadToast: removed opacity hiding on cancel button
+  - Changed `text-nb-muted2` to `text-nb-foreground` for better contrast
+
+### Changed
+
+- **Navbar** - Added "Downloads" nav item with Download icon between Dashboard and History
+
 ## [2.4.0] - 2026-07-05
 
 ### Added

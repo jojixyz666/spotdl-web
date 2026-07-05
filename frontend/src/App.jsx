@@ -7,6 +7,7 @@ import DashboardPage from './pages/DashboardPage'
 import HistoryPage from './pages/HistoryPage'
 import HistoryDetailPage from './pages/HistoryDetailPage'
 import SettingsPage from './pages/SettingsPage'
+import DownloadManagerPage from './pages/DownloadManagerPage'
 import AdminUsersPage from './pages/AdminUsersPage'
 import AdminSettingsPage from './pages/AdminSettingsPage'
 import NotFoundPage from './pages/NotFoundPage'
@@ -58,6 +59,7 @@ export default function App() {
         <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<DashboardPage />} />
+          <Route path="downloads" element={<DownloadManagerPage />} />
           <Route path="history" element={<HistoryPage />} />
           <Route path="history/:id" element={<HistoryDetailPage />} />
           <Route path="settings" element={<SettingsPage />} />

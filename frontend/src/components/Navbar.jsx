@@ -2,10 +2,11 @@ import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Music, LayoutDashboard, Clock, Settings, Shield, LogOut, Menu, X, Sliders } from 'lucide-react'
+import { Music, LayoutDashboard, Clock, Download, Settings, Shield, LogOut, Menu, X, Sliders } from 'lucide-react'
 
 const NAV_ITEMS = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { to: '/downloads', label: 'Downloads', icon: Download },
   { to: '/history', label: 'History', icon: Clock },
 ]
 

@@ -126,6 +126,16 @@ export const api = {
     return res.json()
   },
 
+  async cancelAllDownloads() {
+    const csrf = await this.getCsrf()
+    const res = await request('/api/cancel/batch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ _csrf_token: csrf }),
+    })
+    return res.json()
+  },
+
   async getHistory(page = 1) {
     const res = await request(`/api/history?page=${page}`)
     return res.json()
@@ -136,12 +146,27 @@ export const api = {
     return res.json()
   },
 
+  async deleteHistory(id) {
+    const csrf = await this.getCsrf()
+    const res = await request(`/api/history/${id}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ _csrf_token: csrf }),
+    })
+    return res.json()
+  },
+
   async downloadFileUrl(downloadId) {
     return `${API_BASE}/api/download/file/${downloadId}`
   },
 
   async getBatchZipUrl(batchId) {
     return `${API_BASE}/api/download/batch/${batchId}/zip`
+  },
+
+  async getBatchStatus(batchId) {
+    const res = await request(`/api/batch/${batchId}/status`)
+    return res.json()
   },
 
   async getAdminUsers() {
