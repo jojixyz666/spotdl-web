@@ -3,7 +3,8 @@ import { cn } from '../../lib/utils'
 function Card({ className, ...props }) {
   return (
     <div
-      className={cn('bg-nb-surface border-2 border-nb-border rounded-nb shadow-nb flex flex-col gap-6 py-6', className)}
+      className={cn('bg-nb-surface rounded-nb shadow-nb flex flex-col gap-6 py-6', className)}
+      style={{ borderWidth: '3px', borderStyle: 'solid', borderColor: '#000000' }}
       {...props}
     />
   )

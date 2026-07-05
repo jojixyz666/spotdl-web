@@ -176,7 +176,7 @@ export default function DownloadToast() {
                         {isActive && (
                           <button
                             onClick={(e) => { e.stopPropagation(); handleCancel(item.id) }}
-                            className="p-0.5 rounded-nb border-2 border-transparent text-nb-muted2 hover:bg-nb-danger hover:text-white hover:border-nb-border transition-all opacity-0 group-hover/item:opacity-100"
+                            className="p-0.5 rounded-nb border-2 border-transparent text-nb-muted2 hover:bg-nb-danger hover:text-nb-danger-foreground hover:border-nb-border transition-all opacity-0 group-hover/item:opacity-100"
                             title="Cancel"
                           >
                             <X size={12} />
