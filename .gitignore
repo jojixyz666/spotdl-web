@@ -6,7 +6,7 @@ config.json
 downloads/
 *.log
 bin/
-lib/
+/lib/
 lib64/
 include/
 share/
