@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { api } from '../lib/api'
 import { useToast } from '../lib/toast'
 import { motion } from 'framer-motion'
-import { Sliders, Save, Loader2, Download, Shield, Music } from 'lucide-react'
+import { Sliders, Save, Loader2, Download, Shield, Music, Trash2, AlertTriangle } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Label } from '../components/ui/Label'
@@ -15,6 +15,8 @@ export default function AdminSettingsPage() {
   const [config, setConfig] = useState({ batch_limit: 500, max_concurrent_downloads: 5, require_approval: true, audio_format: 'mp3', bitrate: '128k' })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [cleaning, setCleaning] = useState(false)
+  const [confirmClean, setConfirmClean] = useState(false)
 
   useEffect(() => {
     api.getAdminSettings().then(data => setConfig(data.config || config)).catch(() => {}).finally(() => setLoading(false))
@@ -29,6 +31,22 @@ export default function AdminSettingsPage() {
       else toast.success('Settings saved!')
     } catch { toast.error('Failed') }
     setSaving(false)
+  }
+
+  const handleCleanAll = async () => {
+    setCleaning(true)
+    try {
+      const res = await api.deleteAllDownloads()
+      if (res.error) {
+        toast.error(res.error)
+      } else {
+        toast.success(res.message || 'All downloads cleared')
+        setConfirmClean(false)
+      }
+    } catch {
+      toast.error('Failed to clear downloads')
+    }
+    setCleaning(false)
   }
 
   if (loading) return <div className="py-20 text-center"><div className="w-8 h-8 border-2 border-nb-border border-t-nb-main rounded-full animate-spin-slow mx-auto" /></div>
@@ -140,6 +158,61 @@ export default function AdminSettingsPage() {
           {saving ? <Loader2 size={18} className="animate-spin-slow" /> : <><Save size={18} /> Save Settings</>}
         </Button>
       </form>
+
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <NbIcon icon={Trash2} variant="danger" />
+              <CardTitle>Danger Zone</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="rounded-nb border-2 border-nb-danger/30 bg-nb-danger/5 p-4">
+              <div className="flex items-start gap-3">
+                <AlertTriangle size={20} className="text-nb-danger mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="text-sm font-heading font-semibold text-nb-foreground">Delete All Downloads</p>
+                  <p className="text-xs text-nb-muted2 mt-1 font-heading">
+                    This will permanently delete all downloaded files, download history, and URL history from the server.
+                    This action cannot be undone.
+                  </p>
+                  <div className="mt-3">
+                    {confirmClean ? (
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="danger"
+                          size="sm"
+                          onClick={handleCleanAll}
+                          disabled={cleaning}
+                        >
+                          {cleaning ? <Loader2 size={14} className="animate-spin-slow" /> : <><Trash2 size={14} /> Confirm Delete All</>}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setConfirmClean(false)}
+                          disabled={cleaning}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        onClick={() => setConfirmClean(true)}
+                      >
+                        <Trash2 size={14} /> Delete All Downloads
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
     </div>
   )
 }

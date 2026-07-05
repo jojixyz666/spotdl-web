@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Download, CheckCircle, XCircle, ChevronDown, ChevronUp, Loader2, X, Ban } from 'lucide-react'
+import { Download, CheckCircle, XCircle, ChevronDown, ChevronUp, Loader2, X } from 'lucide-react'
 import { cn } from '../lib/utils'
 
 export default function DownloadToast() {

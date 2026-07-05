@@ -199,6 +199,16 @@ export const api = {
     return res.json()
   },
 
+  async deleteAllDownloads() {
+    const csrf = await this.getCsrf()
+    const res = await request('/api/admin/clean-all-downloads', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ _csrf_token: csrf }),
+    })
+    return res.json()
+  },
+
   async updateUsername(newUsername) {
     const csrf = await this.getCsrf()
     const res = await request('/api/settings', {

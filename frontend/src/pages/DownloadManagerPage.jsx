@@ -4,9 +4,10 @@ import { api } from '../lib/api'
 import { useToast } from '../lib/toast'
 import { formatDuration, timeAgo } from '../lib/utils'
 import {
-  Download, Music, Loader2, CheckCircle, XCircle, Ban,
-  Trash2, X, PackageOpen, RefreshCw, ChevronDown, ChevronUp, Check,
-  Archive, List, Folder
+  Download, Music, Loader2, XCircle,
+  Trash2, X,
+  RefreshCw, ChevronDown, ChevronUp, Check,
+  Archive, Folder
 } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
@@ -254,7 +255,7 @@ export default function DownloadManagerPage() {
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
-              <button onClick={() => setExpanded(!expanded)} className="flex items-center gap-2">
+              <button onClick={() => setExpanded(!expanded)} className="flex items-center gap-2 text-nb-foreground">
                 <CardTitle>All Downloads</CardTitle>
                 {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
               </button>

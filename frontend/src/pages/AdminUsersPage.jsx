@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { api } from '../lib/api'
 import { useToast } from '../lib/toast'
+import { formatWIBDate } from '../lib/utils'
 import { motion } from 'framer-motion'
-import { Shield, ArrowUp, Loader2, UserCheck, UserX } from 'lucide-react'
+import { ArrowUp, Loader2, UserCheck, UserX } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
 import { Card } from '../components/ui/Card'
@@ -55,7 +56,7 @@ export default function AdminUsersPage() {
                   <tr key={u.id} className="hover:bg-nb-secondary/50 transition-colors">
                     <td className="px-6 py-3">
                       <p className="font-heading font-semibold text-nb-foreground">{u.username}</p>
-                      <p className="text-xs text-nb-muted2">{new Date(u.created_at).toLocaleDateString()}</p>
+                      <p className="text-xs text-nb-muted2">{formatWIBDate(u.created_at)}</p>
                     </td>
                     <td className="px-4 py-3">
                       <Badge variant={u.role === 'admin' ? 'default' : 'neutral'}>{u.role}</Badge>

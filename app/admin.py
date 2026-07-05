@@ -1,9 +1,11 @@
 import json
+import os
+import shutil
 from flask import request, jsonify
 from flask_login import login_required
 
 from app.models import get_db
-from app.config import load_app_config, save_app_config, APP_CONFIG_FILE
+from app.config import load_app_config, save_app_config, APP_CONFIG_FILE, DOWNLOAD_FOLDER
 from app.auth import is_admin_user, validate_csrf, validate_csrf_request
 
 
@@ -71,3 +73,37 @@ def register_admin_routes(app):
             save_app_config(app_config)
             return jsonify({'ok': True, 'config': app_config})
         return jsonify({'config': load_app_config()})
+
+    @app.route('/api/admin/clean-all-downloads', methods=['POST'])
+    @login_required
+    @validate_csrf
+    def api_admin_clean_all_downloads():
+        if not is_admin_user():
+            return jsonify({'error': 'Forbidden'}), 403
+
+        conn = get_db()
+        c = conn.cursor()
+        c.execute('DELETE FROM downloads')
+        deleted_db = c.rowcount
+        c.execute('DELETE FROM url_history')
+        deleted_history = c.rowcount
+        conn.close()
+
+        deleted_files = 0
+        if os.path.isdir(DOWNLOAD_FOLDER):
+            for user_dir in os.listdir(DOWNLOAD_FOLDER):
+                user_path = os.path.join(DOWNLOAD_FOLDER, user_dir)
+                if os.path.isdir(user_path):
+                    try:
+                        shutil.rmtree(user_path)
+                        deleted_files += 1
+                    except Exception:
+                        pass
+
+        return jsonify({
+            'ok': True,
+            'deleted_downloads': deleted_db,
+            'deleted_history': deleted_history,
+            'deleted_user_dirs': deleted_files,
+            'message': f'Cleared {deleted_db} downloads, {deleted_history} history entries, and {deleted_files} user directories',
+        })

@@ -1,14 +1,14 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useRef } from 'react'
 import { useAuth } from '../lib/auth'
 import { useToast } from '../lib/toast'
 import { api } from '../lib/api'
-import { formatDuration, timeAgo } from '../lib/utils'
+import { formatDuration } from '../lib/utils'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Search, Play, Pause, Download, Music, ExternalLink, Check, Loader2, Trash2, X, XCircle, Ban } from 'lucide-react'
+import { Search, Play, Pause, Download, ExternalLink, Loader2 } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Badge } from '../components/ui/Badge'
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
+import { Card, CardContent, CardHeader } from '../components/ui/Card'
 import { Select } from '../components/ui/Select'
 
 export default function DashboardPage() {
@@ -17,112 +17,10 @@ export default function DashboardPage() {
   const [url, setUrl] = useState('')
   const [preview, setPreview] = useState(null)
   const [loading, setLoading] = useState(false)
-  const [downloads, setDownloads] = useState([])
-  const [page, setPage] = useState(1)
-  const [hasMore, setHasMore] = useState(true)
-  const [downloadsLoading, setDownloadsLoading] = useState(false)
   const previewAudio = useRef(null)
   const [playingId, setPlayingId] = useState(null)
   const [audioFormat, setAudioFormat] = useState('mp3')
   const [bitrate, setBitrate] = useState('128k')
-  const esRef = useRef(null)
-
-  const loadDownloads = useCallback(async (p = 1, append = false) => {
-    setDownloadsLoading(true)
-    try {
-      const data = await api.getDownloads(p)
-      if (append) {
-        setDownloads(prev => [...prev, ...data.downloads])
-      } else {
-        setDownloads(data.downloads || [])
-      }
-      setHasMore(data.has_more || false)
-      setPage(p)
-    } catch {}
-    setDownloadsLoading(false)
-  }, [])
-
-  useEffect(() => { loadDownloads() }, [loadDownloads])
-
-  useEffect(() => {
-    const connect = () => {
-      const es = new EventSource('/api/events')
-      esRef.current = es
-
-      const handleUpdate = (e) => {
-        try {
-          const data = JSON.parse(e.data)
-          setDownloads(prev => {
-            const idx = prev.findIndex(d => d.id === data.id)
-            if (idx >= 0) {
-              const next = [...prev]
-              next[idx] = { ...next[idx], status: data.status, source: data.source }
-              return next
-            }
-            return [{ id: data.id, title: data.title, artist: data.artist, status: data.status, image_url: null, created_at: new Date().toISOString() }, ...prev]
-          })
-        } catch {}
-      }
-
-      const handleComplete = (e) => {
-        try {
-          const data = JSON.parse(e.data)
-          setDownloads(prev => {
-            const idx = prev.findIndex(d => d.id === data.id)
-            if (idx >= 0) {
-              const next = [...prev]
-              next[idx] = { ...next[idx], status: 'completed', filename: data.filename }
-              return next
-            }
-            return [{ id: data.id, title: data.title, artist: data.artist, status: 'completed', filename: data.filename, created_at: new Date().toISOString() }, ...prev]
-          })
-        } catch {}
-      }
-
-      const handleFailed = (e) => {
-        try {
-          const data = JSON.parse(e.data)
-          setDownloads(prev => {
-            const idx = prev.findIndex(d => d.id === data.id)
-            if (idx >= 0) {
-              const next = [...prev]
-              next[idx] = { ...next[idx], status: 'failed' }
-              return next
-            }
-            return prev
-          })
-        } catch {}
-      }
-
-      const handleCancelled = (e) => {
-        try {
-          const data = JSON.parse(e.data)
-          setDownloads(prev => {
-            const idx = prev.findIndex(d => d.id === data.id)
-            if (idx >= 0) {
-              const next = [...prev]
-              next[idx] = { ...next[idx], status: 'cancelled' }
-              return next
-            }
-            return prev
-          })
-        } catch {}
-      }
-
-      es.addEventListener('download_update', handleUpdate)
-      es.addEventListener('download_complete', handleComplete)
-      es.addEventListener('download_failed', handleFailed)
-      es.addEventListener('download_cancelled', handleCancelled)
-
-      es.onerror = () => {
-        es.close()
-        setTimeout(connect, 5000)
-      }
-    }
-
-    connect()
-    return () => esRef.current?.close()
-  }, [])
 
   const handleSearch = async () => {
     if (!url.trim()) return
@@ -148,7 +46,6 @@ export default function DashboardPage() {
         toast.error(res.error)
       } else {
         toast.success(`Downloading: ${track.artist} - ${track.name || track.title}`)
-        loadDownloads()
       }
     } catch {
       toast.error('Download failed')
@@ -162,51 +59,9 @@ export default function DashboardPage() {
         toast.error(res.error)
       } else {
         toast.success(`Batch downloading ${tracks.length} tracks...`)
-        loadDownloads()
       }
     } catch {
       toast.error('Batch download failed')
-    }
-  }
-
-  const handleDelete = async (id) => {
-    try {
-      await api.deleteDownload(id)
-      setDownloads(prev => prev.filter(d => d.id !== id))
-      toast.success('Deleted')
-    } catch {
-      toast.error('Delete failed')
-    }
-  }
-
-  const handleCancel = async (id) => {
-    try {
-      const res = await api.cancelDownload(id)
-      if (res.error) {
-        toast.error(res.error)
-      } else {
-        setDownloads(prev => prev.map(d => d.id === id ? { ...d, status: 'cancelled' } : d))
-        toast.success('Download cancelled')
-      }
-    } catch {
-      toast.error('Cancel failed')
-    }
-  }
-
-  const handleCancelAll = async () => {
-    try {
-      const res = await api.cancelAllDownloads()
-      if (res.error) {
-        toast.error(res.error)
-      } else {
-        setDownloads(prev => prev.map(d =>
-          (d.status === 'pending' || d.status === 'processing' || d.status === 'searching')
-            ? { ...d, status: 'cancelled' } : d
-        ))
-        toast.success(res.message || 'All downloads cancelled')
-      }
-    } catch {
-      toast.error('Cancel failed')
     }
   }
 
@@ -227,13 +82,11 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      {/* Welcome */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
         <h2 className="text-2xl font-heading font-bold text-nb-foreground">Welcome back, {user?.username}</h2>
-        <p className="text-nb-muted mt-1 font-heading">Paste a Spotify link to download tracks, albums, or playlists</p>
+        <p className="text-nb-muted mt-1 font-heading">Paste a Spotify link to preview and download tracks, albums, or playlists</p>
       </motion.div>
 
-      {/* Search */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
         <Card>
           <CardContent>
@@ -278,7 +131,6 @@ export default function DashboardPage() {
         </Card>
       </motion.div>
 
-      {/* Preview */}
       <AnimatePresence mode="wait">
         {preview && (
           <motion.div
@@ -297,45 +149,6 @@ export default function DashboardPage() {
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* Downloads */}
-      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Recent Downloads</CardTitle>
-              <div className="flex items-center gap-2">
-                {downloads.some(d => d.status === 'pending' || d.status === 'processing' || d.status === 'searching') && (
-                  <Button variant="ghost" size="sm" onClick={handleCancelAll} className="text-nb-danger hover:bg-nb-danger/10">
-                    <XCircle size={14} /> Cancel All
-                  </Button>
-                )}
-                {downloads.length > 0 && (
-                  <Badge variant="neutral">{downloads.length}</Badge>
-                )}
-              </div>
-            </div>
-          </CardHeader>
-          <div className="divide-y-2 divide-nb-border">
-            {downloads.length === 0 && !downloadsLoading && (
-              <div className="py-16 text-center">
-                <Music size={40} className="mx-auto text-nb-foreground mb-3" />
-                <p className="text-nb-muted font-heading font-semibold">No downloads yet</p>
-              </div>
-            )}
-            {downloads.map(d => (
-              <DownloadItem key={d.id} data={d} onDelete={handleDelete} onCancel={handleCancel} />
-            ))}
-            {hasMore && (
-              <div className="py-3 text-center">
-                <Button variant="ghost" size="sm" onClick={() => loadDownloads(page + 1, true)} className="text-nb-main">
-                  Load more
-                </Button>
-              </div>
-            )}
-          </div>
-        </Card>
-      </motion.div>
     </div>
   )
 }
@@ -406,7 +219,6 @@ function PlaylistPreview({ data, onDownload, onBatch, playingId, togglePreview, 
 
   return (
     <Card>
-      {/* Header */}
       <CardHeader>
         <div className="flex flex-col sm:flex-row items-center gap-5">
           {data.image_url && (
@@ -425,7 +237,6 @@ function PlaylistPreview({ data, onDownload, onBatch, playingId, togglePreview, 
         </div>
       </CardHeader>
 
-      {/* Toolbar */}
       <div className="px-6 py-3 border-t-2 border-b-2 border-nb-border flex items-center gap-3 flex-wrap bg-nb-secondary">
         <label className="flex items-center gap-2 cursor-pointer text-sm text-nb-muted font-heading font-semibold select-none">
           <input
@@ -458,7 +269,6 @@ function PlaylistPreview({ data, onDownload, onBatch, playingId, togglePreview, 
         </Button>
       </div>
 
-      {/* Tracks */}
       <div className="max-h-[480px] overflow-y-auto divide-y divide-nb-border/50">
         {tracks.map((t, i) => (
           <div
@@ -491,77 +301,5 @@ function PlaylistPreview({ data, onDownload, onBatch, playingId, togglePreview, 
         ))}
       </div>
     </Card>
-  )
-}
-
-function DownloadItem({ data, onDelete, onCancel }) {
-  const [confirming, setConfirming] = useState(false)
-
-  const statusConfig = {
-    pending: { badge: 'warning', label: 'Queued' },
-    processing: { badge: 'info', label: 'Processing...' },
-    searching: { badge: 'info', label: `Searching ${data.source || ''}...` },
-    completed: { badge: 'default', label: 'Completed' },
-    failed: { badge: 'danger', label: 'Failed' },
-    cancelled: { badge: 'muted', label: 'Cancelled' },
-  }
-
-  const config = statusConfig[data.status] || statusConfig.muted
-  const isActive = data.status === 'pending' || data.status === 'processing' || data.status === 'searching'
-
-  return (
-    <div className="flex items-center gap-4 px-6 py-3 hover:bg-nb-secondary/30 transition-colors group">
-      {data.image_url ? (
-        <img src={data.image_url} className="w-11 h-11 rounded-nb object-cover border-2 border-nb-border flex-shrink-0" alt="" />
-      ) : (
-        <div className="w-11 h-11 rounded-nb bg-nb-surface2 border-2 border-nb-border flex items-center justify-center flex-shrink-0">
-          <Music size={18} className="text-nb-foreground" />
-        </div>
-      )}
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-heading font-semibold text-nb-foreground truncate">{data.title || 'Processing...'}</p>
-        <p className="text-xs text-nb-muted truncate">{data.artist}</p>
-        <p className="text-[11px] text-nb-muted2 mt-0.5 font-heading">{timeAgo(data.created_at)}</p>
-      </div>
-      <div className="flex items-center gap-2 flex-shrink-0">
-        {data.status === 'completed' && data.filename ? (
-          <>
-            <a href={`/api/download/file/${data.id}`}>
-              <Button size="sm"><Download size={14} /> {data.filename?.split('.').pop()?.toUpperCase() || 'File'}</Button>
-            </a>
-            {confirming ? (
-              <div className="flex items-center gap-1">
-                <Button variant="danger" size="icon-sm" onClick={() => onDelete(data.id)}><Check size={14} /></Button>
-                <Button variant="ghost" size="icon-sm" onClick={() => setConfirming(false)}><X size={14} /></Button>
-              </div>
-            ) : (
-              <Button variant="ghost" size="icon-sm" onClick={() => setConfirming(true)} className="sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                <Trash2 size={14} />
-              </Button>
-            )}
-          </>
-        ) : data.status === 'cancelled' ? (
-          <Badge variant="muted">Cancelled</Badge>
-        ) : data.status === 'failed' ? (
-          <Badge variant="danger">Failed</Badge>
-        ) : (
-          <>
-            <Badge variant={config.badge} className="flex items-center gap-1.5">
-              {isActive && <Loader2 size={12} className="animate-spin-slow" />}
-              {config.label}
-            </Badge>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={() => onCancel(data.id)}
-              className="text-nb-foreground hover:text-nb-danger hover:bg-nb-danger/10"
-              title="Cancel download"
-            >
-              <XCircle size={14} />
-            </Button>
-          </>
-        )}
-      </div>
-    </div>
   )
 }

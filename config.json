@@ -1,7 +1,0 @@
-{
-  "batch_limit": 500,
-  "max_concurrent_downloads": 5,
-  "require_approval": true,
-  "audio_format": "m4a",
-  "bitrate": "disable"
-}
