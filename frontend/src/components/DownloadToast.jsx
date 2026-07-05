@@ -82,8 +82,6 @@ export default function DownloadToast() {
     }
   }, [user])
 
-  if (!user) return null
-
   const handleCancel = useCallback(async (id) => {
     try {
       const res = await fetch(`/api/cancel/${id}`, {
@@ -121,6 +119,7 @@ export default function DownloadToast() {
     } catch {}
   }, [])
 
+  if (!user) return null
   if (items.length === 0) return null
 
   const processing = items.filter(d => d.status === 'pending' || d.status === 'processing' || d.status === 'searching')

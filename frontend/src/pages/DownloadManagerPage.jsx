@@ -7,8 +7,8 @@ import {
   Download, Music, Loader2, XCircle, Ban,
   Trash2, X,
   RefreshCw, ChevronDown, ChevronUp, Check,
-  Archive, Folder, HardDrive, ListMusic, Disc3,
-  Play, Pause, CheckCircle, AlertCircle, XCircle as XCircleIcon
+  Archive, Folder, HardDrive, ListMusic,
+  Pause, CheckCircle, AlertCircle
 } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
@@ -488,7 +488,7 @@ function DownloadRow({ data, index, onDelete, onCancel, nested }) {
     searching: { badge: 'info', label: `Searching`, icon: <Loader2 size={12} className="animate-spin-slow" /> },
     completed: { badge: 'default', label: 'Done', icon: <CheckCircle size={12} /> },
     failed: { badge: 'danger', label: 'Failed', icon: <AlertCircle size={12} /> },
-    cancelled: { badge: 'muted', label: 'Cancelled', icon: <XCircleIcon size={12} /> },
+    cancelled: { badge: 'muted', label: 'Cancelled', icon: <XCircle size={12} /> },
   }
   const config = statusConfig[data.status] || statusConfig.muted
 
