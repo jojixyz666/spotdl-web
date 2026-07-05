@@ -2,14 +2,18 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Download, CheckCircle, XCircle, ChevronDown, ChevronUp, Loader2, X } from 'lucide-react'
 import { cn } from '../lib/utils'
+import { useAuth } from '../lib/auth'
 
 export default function DownloadToast() {
+  const { user } = useAuth()
   const [items, setItems] = useState([])
   const [expanded, setExpanded] = useState(false)
   const esRef = useRef(null)
   const reconnectRef = useRef(null)
 
   useEffect(() => {
+    if (!user) return
+
     let mounted = true
 
     const connect = () => {
@@ -76,7 +80,9 @@ export default function DownloadToast() {
       esRef.current?.close()
       if (reconnectRef.current) clearTimeout(reconnectRef.current)
     }
-  }, [])
+  }, [user])
+
+  if (!user) return null
 
   const handleCancel = useCallback(async (id) => {
     try {
