@@ -10,6 +10,13 @@
   - SSE `download_cancelled` event for real-time UI update
   - Works on both Dashboard download list and floating DownloadToast
 
+- **Redis-Backed Rate Limiter**
+  - Rate limiter now uses Redis storage (works across all gunicorn workers)
+  - Auto-fallback to memory if Redis unavailable
+
+- **requirements.txt**
+  - Pinned dependency versions for reproducible builds
+
 - **Format/Bitrate Selection (Fixed)**
   - User-selected audio format (MP3/FLAC/M4A/OPUS/OGG/WAV) now actually used in download
   - User-selected bitrate (128k-320k/auto/disable) now passed to yt-dlp
