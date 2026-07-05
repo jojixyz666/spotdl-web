@@ -1,5 +1,31 @@
 # Changelog
 
+## [2.3.0] - 2026-07-05
+
+### Added
+
+- **Error Pages**
+  - `NotFoundPage` (404) - Bold "404" with go back and dashboard buttons
+  - `ForbiddenPage` (403) - Shield icon with access denied message
+  - `ServerErrorPage` (500) - Warning icon with try again button
+  - `MaintenancePage` - Construction icon with downtime info
+
+- **Maintenance Mode**
+  - `/maintenance` route for scheduled maintenance display
+
+### Fixed
+
+- **Login redirect loop** - Entering wrong password caused infinite redirect loop
+  - Excluded `/api/login`, `/api/register`, `/api/csrf`, `/api/me` from 401 redirect logic
+  - Only redirects to `/login` for authenticated API calls that fail (session expired)
+
+- **Admin route 403 handling** - Non-admin users now see ForbiddenPage instead of redirect to dashboard
+
+### Changed
+
+- Flask error handlers (403, 404, 500, 501) now serve React app for non-API routes
+- LoadingScreen updated with neobrutalism styling
+
 ## [2.2.0] - 2026-07-05
 
 ### Changed
