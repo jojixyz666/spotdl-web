@@ -11,3 +11,4 @@ lib64/
 include/
 share/
 pyvenv.cfg
+*.zip
