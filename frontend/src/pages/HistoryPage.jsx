@@ -46,7 +46,7 @@ export default function HistoryPage() {
               </div>
             ) : items.length === 0 ? (
               <div className="py-16 text-center">
-                <Clock size={40} className="mx-auto text-nb-muted2 mb-3" />
+                <Clock size={40} className="mx-auto text-nb-foreground mb-3" />
                 <p className="text-nb-muted font-heading font-semibold">No history yet</p>
                 <p className="text-nb-muted2 text-sm mt-1 font-heading">Your download history will appear here</p>
               </div>
@@ -67,8 +67,8 @@ export default function HistoryPage() {
                       {item.image_url ? (
                         <img src={item.image_url} className="w-12 h-12 rounded-nb object-cover border-2 border-nb-border shadow-nb-sm flex-shrink-0" alt="" />
                       ) : (
-                        <div className="w-12 h-12 rounded-nb bg-nb-secondary border-2 border-nb-border flex items-center justify-center flex-shrink-0">
-                          <Icon size={20} className="text-nb-muted" />
+                        <div className="w-12 h-12 rounded-nb bg-nb-surface2 border-2 border-nb-border flex items-center justify-center flex-shrink-0">
+                          <Icon size={20} className="text-nb-foreground" />
                         </div>
                       )}
                       <div className="flex-1 min-w-0">

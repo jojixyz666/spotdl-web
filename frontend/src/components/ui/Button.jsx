@@ -9,7 +9,7 @@ const buttonVariants = cva(
         default: 'bg-nb-main text-nb-main-foreground hover:translate-x-nb-sm hover:translate-y-nb-sm hover:shadow-nb-hover active:translate-x-nb active:translate-y-nb active:shadow-none',
         neutral: 'bg-nb-secondary text-nb-foreground hover:translate-x-nb-sm hover:translate-y-nb-sm hover:shadow-nb-hover active:translate-x-nb active:translate-y-nb active:shadow-none',
         danger: 'bg-nb-danger text-nb-danger-foreground hover:translate-x-nb-sm hover:translate-y-nb-sm hover:shadow-nb-hover active:translate-x-nb active:translate-y-nb active:shadow-none',
-        ghost: 'border-transparent bg-transparent text-nb-muted shadow-none hover:bg-nb-main hover:text-nb-main-foreground hover:shadow-nb-sm',
+        ghost: 'border-transparent bg-transparent text-nb-foreground shadow-none hover:bg-nb-secondary hover:shadow-nb-sm hover:border-nb-border',
       },
       size: {
         default: 'h-10 px-4 py-2',
@@ -27,10 +27,11 @@ const buttonVariants = cva(
 )
 
 function Button({ className, variant, size, ...props }) {
+  const isGhost = variant === 'ghost'
   return (
     <button
       className={cn(buttonVariants({ variant, size, className }))}
-      style={{ borderWidth: '3px', borderStyle: 'solid', borderColor: variant === 'ghost' ? 'transparent' : '#000000' }}
+      style={isGhost ? undefined : { borderWidth: '3px', borderStyle: 'solid', borderColor: '#000000' }}
       {...props}
     />
   )

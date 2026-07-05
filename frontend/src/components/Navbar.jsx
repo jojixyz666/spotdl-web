@@ -42,7 +42,7 @@ export default function Navbar() {
                 className={`flex items-center gap-2 px-3 py-2 rounded-nb border-2 text-sm font-heading font-semibold transition-all duration-150 ${
                   active
                     ? 'bg-nb-main text-nb-main-foreground border-nb-border shadow-nb-sm'
-                    : 'bg-transparent text-nb-muted border-transparent hover:bg-nb-secondary hover:text-nb-foreground hover:border-nb-border hover:shadow-nb-sm'
+                    : 'bg-transparent text-nb-foreground border-transparent hover:bg-nb-secondary hover:border-nb-border hover:shadow-nb-sm'
                 }`}
               >
                 <item.icon size={16} />
@@ -54,10 +54,10 @@ export default function Navbar() {
 
         <div className="hidden md:flex items-center gap-3">
           <span className="text-sm font-heading font-semibold text-nb-muted">{user?.username}</span>
-          <Link to="/settings" className="p-2 rounded-nb border-2 border-transparent text-nb-muted hover:bg-nb-secondary hover:text-nb-foreground hover:border-nb-border hover:shadow-nb-sm transition-all">
+          <Link to="/settings" className="p-2 rounded-nb border-2 border-transparent text-nb-foreground hover:bg-nb-secondary hover:border-nb-border hover:shadow-nb-sm transition-all">
             <Settings size={18} />
           </Link>
-          <button onClick={logout} className="p-2 rounded-nb border-2 border-transparent text-nb-muted hover:bg-nb-danger hover:text-nb-danger-foreground hover:border-nb-border hover:shadow-nb-sm transition-all">
+          <button onClick={logout} className="p-2 rounded-nb border-2 border-transparent text-nb-foreground hover:bg-nb-danger hover:text-nb-danger-foreground hover:border-nb-border hover:shadow-nb-sm transition-all">
             <LogOut size={18} />
           </button>
         </div>
@@ -92,7 +92,7 @@ export default function Navbar() {
                     className={`flex items-center gap-3 px-3 py-2.5 rounded-nb border-2 text-sm font-heading font-semibold transition-all ${
                       active
                         ? 'bg-nb-main text-nb-main-foreground border-nb-border shadow-nb-sm'
-                        : 'bg-transparent text-nb-muted border-transparent hover:bg-nb-secondary hover:text-nb-foreground hover:border-nb-border'
+                        : 'bg-transparent text-nb-foreground border-transparent hover:bg-nb-secondary hover:border-nb-border'
                     }`}
                   >
                     <item.icon size={18} />
@@ -101,7 +101,7 @@ export default function Navbar() {
                 )
               })}
               <hr className="border-nb-border my-2" />
-              <Link to="/settings" onClick={() => setMobileOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-nb border-2 border-transparent text-sm font-heading font-semibold text-nb-muted hover:bg-nb-secondary hover:text-nb-foreground hover:border-nb-border">
+              <Link to="/settings" onClick={() => setMobileOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-nb border-2 border-transparent text-sm font-heading font-semibold text-nb-foreground hover:bg-nb-secondary hover:border-nb-border">
                 <Settings size={18} /> Settings
               </Link>
               <button onClick={() => { setMobileOpen(false); logout() }} className="flex items-center gap-3 px-3 py-2.5 rounded-nb border-2 border-transparent text-sm font-heading font-semibold text-nb-danger hover:bg-nb-danger hover:text-nb-danger-foreground hover:border-nb-border">

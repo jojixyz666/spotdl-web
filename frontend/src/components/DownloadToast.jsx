@@ -113,9 +113,9 @@ export default function DownloadToast() {
         >
           <div className="flex items-center gap-3">
             {processing.length > 0 ? (
-              <Loader2 size={16} className="text-nb-main animate-spin-slow" />
+              <Loader2 size={16} className="text-nb-foreground animate-spin-slow" />
             ) : (
-              <Download size={16} className="text-nb-muted" />
+              <Download size={16} className="text-nb-foreground" />
             )}
             <span className="text-sm font-heading font-semibold text-nb-foreground">
               {processing.length > 0
@@ -153,13 +153,13 @@ export default function DownloadToast() {
                       className="flex items-center gap-3 px-3 py-2 rounded-nb hover:bg-nb-secondary transition-colors group/item"
                     >
                       {item.status === 'completed' ? (
-                        <CheckCircle size={14} className="text-nb-main flex-shrink-0" />
+                        <CheckCircle size={14} className="text-nb-foreground flex-shrink-0" />
                       ) : item.status === 'failed' ? (
                         <XCircle size={14} className="text-nb-danger flex-shrink-0" />
                       ) : item.status === 'cancelled' ? (
-                        <XCircle size={14} className="text-nb-muted2 flex-shrink-0" />
+                        <XCircle size={14} className="text-nb-muted flex-shrink-0" />
                       ) : (
-                        <Loader2 size={14} className="text-nb-main animate-spin-slow flex-shrink-0" />
+                        <Loader2 size={14} className="text-nb-foreground animate-spin-slow flex-shrink-0" />
                       )}
                       <div className="min-w-0 flex-1">
                         <p className="text-xs font-heading font-semibold text-nb-foreground truncate">{item.title || 'Unknown'}</p>
@@ -168,16 +168,16 @@ export default function DownloadToast() {
                       <div className="flex items-center gap-1 flex-shrink-0">
                         <span className={cn(
                           'text-[10px] font-heading font-semibold',
-                          item.status === 'completed' && 'text-nb-main',
+                          item.status === 'completed' && 'text-nb-foreground',
                           item.status === 'failed' && 'text-nb-danger',
-                          (item.status === 'cancelled' || (!['completed', 'failed'].includes(item.status))) && 'text-nb-muted2'
+                          (item.status === 'cancelled' || (!['completed', 'failed'].includes(item.status))) && 'text-nb-muted'
                         )}>
                           {item.status === 'completed' ? 'Done' : item.status === 'failed' ? 'Failed' : item.status === 'cancelled' ? 'Cancelled' : item.source ? `Via ${item.source}` : '...'}
                         </span>
                         {isActive && (
                           <button
                             onClick={(e) => { e.stopPropagation(); handleCancel(item.id) }}
-                            className="p-0.5 rounded-nb border-2 border-transparent text-nb-muted2 hover:bg-nb-danger hover:text-nb-danger-foreground hover:border-nb-border transition-all opacity-0 group-hover/item:opacity-100"
+                            className="p-0.5 rounded-nb border-2 border-transparent text-nb-foreground hover:bg-nb-danger hover:text-nb-danger-foreground hover:border-nb-border transition-all sm:opacity-0 sm:group-hover/item:opacity-100"
                             title="Cancel"
                           >
                             <X size={12} />

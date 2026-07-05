@@ -295,7 +295,7 @@ export default function DashboardPage() {
           <div className="divide-y-2 divide-nb-border">
             {downloads.length === 0 && !downloadsLoading && (
               <div className="py-16 text-center">
-                <Music size={40} className="mx-auto text-nb-muted2 mb-3" />
+                <Music size={40} className="mx-auto text-nb-foreground mb-3" />
                 <p className="text-nb-muted font-heading font-semibold">No downloads yet</p>
               </div>
             )}
@@ -490,8 +490,8 @@ function DownloadItem({ data, onDelete, onCancel }) {
       {data.image_url ? (
         <img src={data.image_url} className="w-11 h-11 rounded-nb object-cover border-2 border-nb-border flex-shrink-0" alt="" />
       ) : (
-        <div className="w-11 h-11 rounded-nb bg-nb-secondary border-2 border-nb-border flex items-center justify-center flex-shrink-0">
-          <Music size={18} className="text-nb-muted" />
+        <div className="w-11 h-11 rounded-nb bg-nb-surface2 border-2 border-nb-border flex items-center justify-center flex-shrink-0">
+          <Music size={18} className="text-nb-foreground" />
         </div>
       )}
       <div className="flex-1 min-w-0">
@@ -511,7 +511,7 @@ function DownloadItem({ data, onDelete, onCancel }) {
                 <Button variant="ghost" size="icon-sm" onClick={() => setConfirming(false)}><X size={14} /></Button>
               </div>
             ) : (
-              <Button variant="ghost" size="icon-sm" onClick={() => setConfirming(true)} className="opacity-0 group-hover:opacity-100 transition-opacity">
+              <Button variant="ghost" size="icon-sm" onClick={() => setConfirming(true)} className="sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                 <Trash2 size={14} />
               </Button>
             )}
@@ -530,7 +530,7 @@ function DownloadItem({ data, onDelete, onCancel }) {
               variant="ghost"
               size="icon-sm"
               onClick={() => onCancel(data.id)}
-              className="text-nb-muted2 hover:text-nb-danger opacity-0 group-hover:opacity-100"
+              className="text-nb-muted2 hover:text-nb-danger sm:opacity-0 sm:group-hover:opacity-100"
               title="Cancel download"
             >
               <XCircle size={14} />

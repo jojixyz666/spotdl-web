@@ -68,7 +68,7 @@ export default function AdminUsersPage() {
                     <td className="px-6 py-3">
                       <div className="flex items-center justify-end gap-1">
                         {actingId === u.id ? (
-                          <Loader2 size={16} className="animate-spin-slow text-nb-muted" />
+                          <Loader2 size={16} className="animate-spin-slow text-nb-foreground" />
                         ) : (
                           <>
                             {!u.is_approved && (

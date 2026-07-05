@@ -144,8 +144,8 @@ export default function HistoryDetailPage() {
               {item.image_url ? (
                 <img src={item.image_url} className="w-24 h-24 rounded-nb object-cover border-2 border-nb-border shadow-nb flex-shrink-0" alt="" />
               ) : (
-                <div className="w-24 h-24 rounded-nb bg-nb-secondary border-2 border-nb-border flex items-center justify-center flex-shrink-0">
-                  <Icon size={32} className="text-nb-muted" />
+                <div className="w-24 h-24 rounded-nb bg-nb-surface2 border-2 border-nb-border flex items-center justify-center flex-shrink-0">
+                  <Icon size={32} className="text-nb-foreground" />
                 </div>
               )}
               <div className="flex-1 min-w-0 text-center sm:text-left">
@@ -204,8 +204,8 @@ export default function HistoryDetailPage() {
                 ) : item.image_url ? (
                   <img src={item.image_url} className="w-10 h-10 rounded-nb object-cover border-2 border-nb-border flex-shrink-0" alt="" />
                 ) : (
-                  <div className="w-10 h-10 rounded-nb bg-nb-secondary border-2 border-nb-border flex items-center justify-center flex-shrink-0">
-                    <Music size={14} className="text-nb-muted" />
+                  <div className="w-10 h-10 rounded-nb bg-nb-surface2 border-2 border-nb-border flex items-center justify-center flex-shrink-0">
+                    <Music size={14} className="text-nb-foreground" />
                   </div>
                 )}
                 <div className="flex-1 min-w-0">

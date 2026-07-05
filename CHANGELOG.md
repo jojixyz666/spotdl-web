@@ -1,5 +1,51 @@
 # Changelog
 
+## [2.4.0] - 2026-07-05
+
+### Added
+
+- **NbIcon Component** (`components/ui/NbIcon.jsx`)
+  - Reusable neobrutalism icon wrapper with hard shadow, 3px black border
+  - 5 color variants: default (mint), danger (red), warning (yellow), info (purple), muted (gray)
+  - 3 sizes: sm (40px), md (64px), lg (96px)
+  - `strokeWidth={2.5}` for bold icon strokes
+
+### Fixed
+
+- **Icon Visibility (CRITICAL)**
+  - Icons were invisible because `bg-nb-main/20` + `text-nb-main` blended into cream background
+  - Changed to solid backgrounds (`bg-nb-main`, `bg-nb-danger`, etc.) with `text-nb-foreground` (black)
+  - All placeholder/fallback icons now use `bg-nb-surface2` + `text-nb-foreground` for high contrast
+  - Ghost button icons changed from `text-nb-muted` to `text-nb-foreground`
+
+- **Mobile CRUD Button Visibility**
+  - Delete/cancel buttons used `opacity-0 group-hover:opacity-100` = invisible on mobile (no hover)
+  - Changed to `sm:opacity-0 sm:group-hover:opacity-100` so buttons are always visible on mobile
+  - Applies to DashboardPage delete/cancel and DownloadToast cancel buttons
+
+- **Navbar Icon Visibility**
+  - Inactive nav items changed from `text-nb-muted` to `text-nb-foreground` for better contrast
+  - Desktop Settings/Logout icons changed to `text-nb-foreground`
+
+- **Toast Notifications**
+  - Completed status icon changed from `text-nb-main` to `text-nb-foreground`
+  - Cancelled status icon changed from `text-nb-muted2` to `text-nb-muted`
+  - Header spinner/icon changed from `text-nb-main` to `text-nb-foreground`
+  - Status text colors darkened for better readability
+
+- **Form Input Icons**
+  - Password toggle Eye/EyeOff icon changed from `text-nb-muted2` to `text-nb-foreground`
+  - Added `hover:text-nb-main` for interactive feedback
+
+### Changed
+
+- **Button Component**
+  - Ghost variant: `text-nb-muted` → `text-nb-foreground`, added `hover:border-nb-border` for visible hover state
+  - Ghost buttons no longer use inline `borderColor: transparent`, relying on Tailwind classes instead
+
+- **DownloadToast**
+  - Border upgraded from `2px` to `3px` for consistency with other components
+
 ## [2.3.0] - 2026-07-05
 
 ### Added
