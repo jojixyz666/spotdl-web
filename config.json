@@ -1,7 +1,7 @@
 {
   "batch_limit": 500,
   "max_concurrent_downloads": 5,
-  "require_approval": true,
+  "require_approval": false,
   "audio_format": "mp3",
-  "bitrate": "128k"
+  "bitrate": "192k"
 }
