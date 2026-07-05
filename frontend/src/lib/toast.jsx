@@ -11,11 +11,11 @@ const ICONS = {
   info: Info,
 }
 
-const COLORS = {
-  success: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400',
-  error: 'bg-red-500/10 border-red-500/20 text-red-400',
-  warning: 'bg-amber-500/10 border-amber-500/20 text-amber-400',
-  info: 'bg-blue-500/10 border-blue-500/20 text-blue-400',
+const TOAST_STYLES = {
+  success: 'bg-nb-main text-nb-main-foreground',
+  error: 'bg-nb-danger text-nb-danger-foreground',
+  warning: 'bg-nb-warning text-nb-warning-foreground',
+  info: 'bg-nb-info text-nb-info-foreground',
 }
 
 let toastId = 0
@@ -60,11 +60,12 @@ export function ToastProvider({ children }) {
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, x: 100, scale: 0.95 }}
                 transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-                className={`pointer-events-auto glass border rounded-xl px-4 py-3 flex items-start gap-3 shadow-2xl ${COLORS[t.type]}`}
+                className={`pointer-events-auto rounded-nb shadow-nb px-4 py-3 flex items-start gap-3 ${TOAST_STYLES[t.type]}`}
+                style={{ borderWidth: '3px', borderStyle: 'solid', borderColor: '#000000' }}
               >
                 <Icon size={18} className="mt-0.5 flex-shrink-0" />
-                <p className="text-sm flex-1 text-text-primary">{t.message}</p>
-                <button onClick={() => removeToast(t.id)} className="text-text-muted hover:text-text-primary transition-colors mt-0.5">
+                <p className="text-sm flex-1 font-heading font-semibold">{t.message}</p>
+                <button onClick={() => removeToast(t.id)} className="mt-0.5 opacity-70 hover:opacity-100 transition-opacity">
                   <X size={14} />
                 </button>
               </motion.div>

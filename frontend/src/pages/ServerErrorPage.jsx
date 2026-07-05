@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Home, RefreshCw, AlertTriangle } from 'lucide-react'
 import { Button } from '../components/ui/Button'
+import { NbIcon } from '../components/ui/NbIcon'
 
 export default function ServerErrorPage() {
   return (
@@ -13,9 +14,7 @@ export default function ServerErrorPage() {
         className="text-center max-w-md"
       >
         <div className="mb-6 flex justify-center">
-          <div className="w-24 h-24 rounded-nb bg-nb-warning/20 border-2 border-nb-border shadow-nb flex items-center justify-center">
-            <AlertTriangle size={48} className="text-nb-warning" />
-          </div>
+          <NbIcon icon={AlertTriangle} size="lg" variant="warning" />
         </div>
         <h1 className="text-[100px] font-heading font-bold text-nb-foreground leading-none mb-2">500</h1>
         <h2 className="text-2xl font-heading font-bold text-nb-foreground mb-3">Server Error</h2>

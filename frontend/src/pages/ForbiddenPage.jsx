@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Home, ArrowLeft, ShieldX } from 'lucide-react'
 import { Button } from '../components/ui/Button'
+import { NbIcon } from '../components/ui/NbIcon'
 
 export default function ForbiddenPage() {
   return (
@@ -13,9 +14,7 @@ export default function ForbiddenPage() {
         className="text-center max-w-md"
       >
         <div className="mb-6 flex justify-center">
-          <div className="w-24 h-24 rounded-nb bg-nb-danger/20 border-2 border-nb-border shadow-nb flex items-center justify-center">
-            <ShieldX size={48} className="text-nb-danger" />
-          </div>
+          <NbIcon icon={ShieldX} size="lg" variant="danger" />
         </div>
         <h1 className="text-[100px] font-heading font-bold text-nb-foreground leading-none mb-2">403</h1>
         <h2 className="text-2xl font-heading font-bold text-nb-foreground mb-3">Access Forbidden</h2>

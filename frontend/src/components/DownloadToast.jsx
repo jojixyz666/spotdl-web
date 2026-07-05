@@ -104,7 +104,8 @@ export default function DownloadToast() {
     <div className="fixed bottom-4 left-4 z-[90] w-80 max-w-[calc(100vw-2rem)]">
       <motion.div
         layout
-        className="bg-nb-surface border-2 border-nb-border rounded-nb shadow-nb-lg overflow-hidden"
+        className="bg-nb-surface rounded-nb shadow-nb-lg overflow-hidden"
+        style={{ borderWidth: '3px', borderStyle: 'solid', borderColor: '#000000' }}
       >
         <button
           onClick={() => setExpanded(!expanded)}

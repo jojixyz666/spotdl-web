@@ -8,6 +8,7 @@ import { Input } from '../components/ui/Input'
 import { Label } from '../components/ui/Label'
 import { Select } from '../components/ui/Select'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
+import { NbIcon } from '../components/ui/NbIcon'
 
 export default function AdminSettingsPage() {
   const toast = useToast()
@@ -44,9 +45,7 @@ export default function AdminSettingsPage() {
           <Card>
             <CardHeader>
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-nb bg-nb-main/20 border-2 border-nb-border flex items-center justify-center">
-                  <Download size={18} className="text-nb-main" />
-                </div>
+                <NbIcon icon={Download} />
                 <CardTitle>Batch Download</CardTitle>
               </div>
             </CardHeader>
@@ -62,9 +61,7 @@ export default function AdminSettingsPage() {
           <Card>
             <CardHeader>
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-nb bg-nb-main/20 border-2 border-nb-border flex items-center justify-center">
-                  <Sliders size={18} className="text-nb-main" />
-                </div>
+                <NbIcon icon={Sliders} />
                 <CardTitle>Concurrency</CardTitle>
               </div>
             </CardHeader>
@@ -80,9 +77,7 @@ export default function AdminSettingsPage() {
           <Card>
             <CardHeader>
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-nb bg-nb-main/20 border-2 border-nb-border flex items-center justify-center">
-                  <Music size={18} className="text-nb-main" />
-                </div>
+                <NbIcon icon={Music} />
                 <CardTitle>Audio Format & Quality</CardTitle>
               </div>
             </CardHeader>
@@ -120,9 +115,7 @@ export default function AdminSettingsPage() {
           <Card>
             <CardHeader>
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-nb bg-nb-main/20 border-2 border-nb-border flex items-center justify-center">
-                  <Shield size={18} className="text-nb-main" />
-                </div>
+                <NbIcon icon={Shield} />
                 <CardTitle>User Registration</CardTitle>
               </div>
             </CardHeader>

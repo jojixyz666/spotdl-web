@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion'
 import { Construction } from 'lucide-react'
+import { NbIcon } from '../components/ui/NbIcon'
 
 export default function MaintenancePage() {
   return (
@@ -11,9 +12,7 @@ export default function MaintenancePage() {
         className="text-center max-w-md"
       >
         <div className="mb-6 flex justify-center">
-          <div className="w-24 h-24 rounded-nb bg-nb-main/20 border-2 border-nb-border shadow-nb flex items-center justify-center">
-            <Construction size={48} className="text-nb-main" />
-          </div>
+          <NbIcon icon={Construction} size="lg" variant="warning" />
         </div>
         <h1 className="text-3xl font-heading font-bold text-nb-foreground mb-3">Under Maintenance</h1>
         <p className="text-nb-muted font-heading mb-6">

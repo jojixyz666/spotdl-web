@@ -7,6 +7,7 @@ import { User, Lock, Save, Loader2 } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
+import { NbIcon } from '../components/ui/NbIcon'
 
 export default function SettingsPage() {
   const { user } = useAuth()
@@ -50,9 +51,7 @@ export default function SettingsPage() {
         <Card>
           <CardHeader>
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-nb bg-nb-main/20 border-2 border-nb-border flex items-center justify-center">
-                <User size={18} className="text-nb-main" />
-              </div>
+              <NbIcon icon={User} />
               <CardTitle>Username</CardTitle>
             </div>
           </CardHeader>
@@ -71,9 +70,7 @@ export default function SettingsPage() {
         <Card>
           <CardHeader>
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-nb bg-nb-main/20 border-2 border-nb-border flex items-center justify-center">
-                <Lock size={18} className="text-nb-main" />
-              </div>
+              <NbIcon icon={Lock} />
               <CardTitle>Password</CardTitle>
             </div>
           </CardHeader>
