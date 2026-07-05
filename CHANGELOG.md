@@ -1,5 +1,46 @@
 # Changelog
 
+## [2.2.0] - 2026-07-05
+
+### Changed
+
+- **Neobrutalism UI/UX Redesign**
+  - Complete visual overhaul using neobrutalism design language
+  - Bold 2px borders on all components (cards, inputs, buttons, badges)
+  - Solid drop shadows (`4px 4px 0px`) with hover translate effect
+  - Space Grotesk font for bold, geometric typography
+  - Spotify green as primary accent color
+
+- **New UI Component Library (`components/ui/`)**
+  - `Button` - 4 variants (default/neutral/danger/ghost), 5 sizes with shadow hover
+  - `Card` - Bold bordered cards with header/content/footer
+  - `Input` - Thick border inputs with focus ring
+  - `Badge` - 6 variants (default/neutral/danger/warning/info/muted)
+  - `Label` - Bold heading font labels
+  - `Select` - Styled select dropdowns
+  - `Progress` - Bordered progress bars
+
+- **Pages Rewritten**
+  - LoginPage - Neobrutalism card with bold login form
+  - RegisterPage - Matching neobrutalism registration
+  - DashboardPage - Search, preview, download list all neobrutalism
+  - HistoryPage - Bold list items with border dividers
+  - HistoryDetailPage - Track list with bold UI elements
+  - SettingsPage - Cards for username/password changes
+  - AdminUsersPage - Bold table with border rows
+  - AdminSettingsPage - Settings cards with bold inputs
+
+- **Components Updated**
+  - Layout - Clean dark background, removed glassmorphism blobs
+  - Navbar - Bold border bottom, hover shadow effects on nav items
+  - DownloadToast - Solid bordered toast panel
+
+### Removed
+
+- Glassmorphism design (backdrop-blur, transparent surfaces)
+- Animated background blobs
+- Inter font (replaced by Space Grotesk)
+
 ## [2.1.0] - 2026-07-05
 
 ### Added
