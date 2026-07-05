@@ -4,7 +4,7 @@ from flask_login import login_required
 
 from app.models import get_db
 from app.config import load_app_config, save_app_config, APP_CONFIG_FILE
-from app.auth import is_admin_user, validate_csrf
+from app.auth import is_admin_user, validate_csrf, validate_csrf_request
 
 
 def register_admin_routes(app):
