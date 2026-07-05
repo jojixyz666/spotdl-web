@@ -4,7 +4,7 @@ import { api } from '../lib/api'
 import { useToast } from '../lib/toast'
 import { formatDuration, timeAgo } from '../lib/utils'
 import {
-  Download, Music, Loader2, XCircle,
+  Download, Music, Loader2, XCircle, Ban,
   Trash2, X,
   RefreshCw, ChevronDown, ChevronUp, Check,
   Archive, Folder
