@@ -662,13 +662,6 @@ def register_download_routes(app, limiter):
         batch_dir = os.path.join(DOWNLOAD_FOLDER, str(current_user.id), f'batch_{batch_id}')
         os.makedirs(batch_dir, exist_ok=True)
 
-        if not from_history and tracks:
-            conn = get_db()
-            c = conn.cursor()
-            c.execute('INSERT INTO url_history (user_id, spotify_url, content_type, collection_name, image_url, track_data, batch_id) VALUES (%s, %s, %s, %s, %s, %s, %s)',
-                      (current_user.id, tracks[0].get('url', ''), content_type, collection_name, tracks[0].get('image_url', ''), json.dumps(tracks), batch_id))
-            conn.close()
-
         download_ids = []
         for t in tracks:
             t_id = t.get('id', '')
@@ -688,7 +681,7 @@ def register_download_routes(app, limiter):
                 conn = get_db()
                 c = conn.cursor()
                 c.execute('INSERT INTO url_history (user_id, spotify_url, content_type, collection_name, image_url, track_data, batch_id) VALUES (%s, %s, %s, %s, %s, %s, %s)',
-                          (current_user.id, t_url, 'track', collection_name, t_image, json.dumps([t]), batch_id))
+                          (current_user.id, t_url, content_type, collection_name, t_image, json.dumps([t]), batch_id))
                 conn.close()
 
             download_ids.append(did)
