@@ -7,11 +7,20 @@ from flask_login import login_user, logout_user, login_required, current_user
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
-from app.config import load_app_config
+from app.config import load_app_config, REDIS_URL
 from app.models import get_db, User
 from app.utils import sanitize_username
 
-limiter = Limiter(key_func=get_remote_address, default_limits=[], storage_uri="memory://")
+_storage = "memory://"
+try:
+    import redis as _rl_redis
+    _test = _rl_redis.Redis.from_url(REDIS_URL, socket_connect_timeout=2)
+    _test.ping()
+    _storage = REDIS_URL
+except Exception:
+    pass
+
+limiter = Limiter(key_func=get_remote_address, default_limits=[], storage_uri=_storage)
 
 
 def is_admin_user():
