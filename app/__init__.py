@@ -180,18 +180,19 @@ def create_app():
     # ── Error Handlers ──
     @app.errorhandler(403)
     def forbidden(e):
-        if getattr(e, 'code', 0) == 403 or True:
-            from flask import request
-            if request.path.startswith('/api/'):
-                return jsonify({'error': 'Forbidden'}), 403
-        return jsonify({'error': 'Forbidden'}), 403
+        from flask import request
+        if request.path.startswith('/api/'):
+            return jsonify({'error': 'Forbidden'}), 403
+        from flask import send_from_directory
+        return send_from_directory(REACT_DIR, 'index.html'), 403
 
     @app.errorhandler(404)
     def not_found(e):
         from flask import request
         if request.path.startswith('/api/'):
             return jsonify({'error': 'Not found'}), 404
-        return jsonify({'error': 'Not found'}), 404
+        from flask import send_from_directory
+        return send_from_directory(REACT_DIR, 'index.html'), 404
 
     @app.errorhandler(429)
     def rate_limited(e):
@@ -205,7 +206,16 @@ def create_app():
         from flask import request
         if request.path.startswith('/api/'):
             return jsonify({'error': 'Internal server error'}), 500
-        return jsonify({'error': 'Internal server error'}), 500
+        from flask import send_from_directory
+        return send_from_directory(REACT_DIR, 'index.html'), 500
+
+    @app.errorhandler(501)
+    def not_implemented(e):
+        from flask import request
+        if request.path.startswith('/api/'):
+            return jsonify({'error': 'Not implemented'}), 501
+        from flask import send_from_directory
+        return send_from_directory(REACT_DIR, 'index.html'), 501
 
     # ── Register Blueprints/Routes ──
     register_auth_routes(app)

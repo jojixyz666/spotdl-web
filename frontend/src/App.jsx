@@ -9,6 +9,9 @@ import HistoryDetailPage from './pages/HistoryDetailPage'
 import SettingsPage from './pages/SettingsPage'
 import AdminUsersPage from './pages/AdminUsersPage'
 import AdminSettingsPage from './pages/AdminSettingsPage'
+import NotFoundPage from './pages/NotFoundPage'
+import ForbiddenPage from './pages/ForbiddenPage'
+import ServerErrorPage from './pages/ServerErrorPage'
 import DownloadToast from './components/DownloadToast'
 
 function ProtectedRoute({ children }) {
@@ -22,7 +25,7 @@ function AdminRoute({ children }) {
   const { user, loading } = useAuth()
   if (loading) return <LoadingScreen />
   if (!user) return <Navigate to="/login" replace />
-  if (!user.is_admin) return <Navigate to="/dashboard" replace />
+  if (!user.is_admin) return <ForbiddenPage />
   return children
 }
 
@@ -35,10 +38,10 @@ function GuestRoute({ children }) {
 
 function LoadingScreen() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-surface-0">
+    <div className="min-h-screen flex items-center justify-center bg-nb-bg">
       <div className="flex flex-col items-center gap-4">
-        <div className="w-10 h-10 border-2 border-surface-5 border-t-spotify-green rounded-full animate-spin-slow" />
-        <p className="text-text-muted text-sm">Loading...</p>
+        <div className="w-10 h-10 border-2 border-nb-border border-t-nb-main rounded-full animate-spin-slow" />
+        <p className="text-nb-muted text-sm font-heading font-semibold">Loading...</p>
       </div>
     </div>
   )
@@ -62,7 +65,9 @@ export default function App() {
           <Route path="users" element={<AdminUsersPage />} />
           <Route path="settings" element={<AdminSettingsPage />} />
         </Route>
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/500" element={<ServerErrorPage />} />
+        <Route path="/maintenance" element={<MaintenancePage />} />
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </>
   )
