@@ -1,5 +1,35 @@
 # Changelog
 
+## [2.8.0] - 2026-07-05
+
+### Added
+
+- **Admin: Delete All Downloads**
+  - New Danger Zone in Admin Settings page
+  - Button with confirm/cancel flow to delete all downloads
+  - Clears all download records, url_history, and user file directories
+  - Backend endpoint: `POST /api/admin/clean-all-downloads`
+
+- **WIB Timezone (UTC+7)**
+  - All displayed times now use WIB timezone
+  - New utility functions: `formatWIB()`, `formatWIBDate()`
+  - Admin users page shows WIB dates
+  - History and download pages show relative times (unchanged)
+
+### Changed
+
+- **Dashboard Simplified**
+  - Dashboard now only shows search input + track/album/playlist preview
+  - Removed "Recent Downloads" list from Dashboard (use Download Manager instead)
+  - Cleaner UX: paste link → preview → download
+
+### Fixed
+
+- **Icon Visibility Audit**
+  - Fixed missing `text-nb-foreground` on DownloadManagerPage expand/collapse button
+  - Cleaned up unused icon imports across codebase
+  - All icons now properly inherit or have explicit color classes
+
 ## [2.7.0] - 2026-07-05
 
 ### Fixed
