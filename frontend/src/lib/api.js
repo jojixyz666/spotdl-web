@@ -1,4 +1,5 @@
 const API_BASE = ''
+const isBrowser = typeof window !== 'undefined'
 
 async function request(url, options = {}) {
   const res = await fetch(API_BASE + url, {
@@ -8,9 +9,9 @@ async function request(url, options = {}) {
   })
   if (res.status === 401 || res.status === 403) {
     const text = await res.text()
-    if (text.includes('login') || res.status === 401) {
+    const isLoginOrMe = url === '/api/login' || url === '/api/register' || url === '/api/csrf' || url === '/api/me'
+    if (!isLoginOrMe && isBrowser && !window.location.pathname.startsWith('/login')) {
       window.location.href = '/login'
-      throw new Error('Unauthorized')
     }
   }
   return res
