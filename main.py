@@ -31,7 +31,7 @@ def init_db():
             artist VARCHAR(255),
             image_url VARCHAR(1024),
             filename VARCHAR(255),
-            status ENUM('pending','processing','completed','failed') DEFAULT 'pending',
+            status ENUM('pending','processing','completed','failed','cancelled') DEFAULT 'pending',
             message TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users(id)
@@ -53,7 +53,7 @@ def init_db():
     ''')
 
     c.execute("SELECT COUNT(*) FROM users WHERE username=%s", (ADMIN_USER,))
-    if c.fetchone()[0] == 0:
+    if c.fetchone()[0] == 0 and ADMIN_PASS:
         hashed = hash_password(ADMIN_PASS)
         c.execute(
             "INSERT INTO users (username, password, role, is_approved) VALUES (%s, %s, %s, %s)",
@@ -73,14 +73,6 @@ def init_db():
         except Exception:
             pass
 
-    c.execute("SELECT password FROM users WHERE username='admin'")
-    row = c.fetchone()
-    if row and not row[0].startswith('$2'):
-        hashed = hash_password('admin123')
-        c.execute("UPDATE users SET password=%s WHERE username='admin'", (hashed,))
-
-    c.execute("UPDATE users SET is_approved=1, role='admin' WHERE username='admin'")
-
     c.execute("SELECT id, password FROM users")
     for row in c.fetchall():
         if row[1] and not row[1].startswith('$2'):
@@ -96,8 +88,11 @@ def init_db():
     if c.fetchone()[0] == 0:
         c.execute("ALTER TABLE users ADD COLUMN role ENUM('admin','user') DEFAULT 'user' AFTER password")
         c.execute("ALTER TABLE users ADD COLUMN is_approved TINYINT(1) DEFAULT 0 AFTER role")
-        c.execute("UPDATE users SET is_approved=1 WHERE username='admin'")
-        c.execute("UPDATE users SET role='admin' WHERE username='admin'")
+
+    c.execute("SHOW COLUMNS FROM downloads LIKE 'status'")
+    col = c.fetchone()
+    if col and 'cancelled' not in col[1]:
+        c.execute("ALTER TABLE downloads MODIFY COLUMN status ENUM('pending','processing','completed','failed','cancelled') DEFAULT 'pending'")
 
     conn.close()
 

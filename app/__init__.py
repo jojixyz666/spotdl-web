@@ -1,3 +1,4 @@
+import json
 import secrets
 from datetime import timedelta
 
@@ -30,7 +31,7 @@ def create_app():
     app.config.update(
         PERMANENT_SESSION_LIFETIME=SESSION_LIFETIME,
         DOWNLOAD_FOLDER=DOWNLOAD_FOLDER,
-        MAX_CONTENT_LENGTH=500 * 1024 * 1024,
+        MAX_CONTENT_LENGTH=5 * 1024 * 1024,
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE='Lax',
         SESSION_COOKIE_SECURE=HTTPS_ENABLED,
@@ -119,9 +120,13 @@ def create_app():
         from flask import send_from_directory
         import os
         static_dir = '/opt/spotdl-web/static/react'
-        file_path = os.path.join(static_dir, path)
-        if os.path.isfile(file_path):
-            return send_from_directory(static_dir, path)
+        safe_path = os.path.normpath(path)
+        if '..' in safe_path or safe_path.startswith('/'):
+            return send_from_directory(static_dir, 'index.html')
+        file_path = os.path.join(static_dir, safe_path)
+        real_static = os.path.realpath(static_dir)
+        if os.path.isfile(file_path) and os.path.realpath(file_path).startswith(real_static):
+            return send_from_directory(static_dir, safe_path)
         return send_from_directory(static_dir, 'index.html')
 
     # ── SSE ──
@@ -140,6 +145,18 @@ def create_app():
         def generate():
             try:
                 yield "event: connected\ndata: {}\n\n"
+                try:
+                    conn = get_db()
+                    c = conn.cursor(dictionary=True)
+                    c.execute('SELECT id, title, artist, status, filename FROM downloads WHERE user_id = %s AND status IN (%s, %s, %s) ORDER BY id DESC LIMIT 20',
+                              (uid, 'pending', 'processing', 'searching'))
+                    active = c.fetchall()
+                    conn.close()
+                    for dl in active:
+                        msg = f"event: download_update\ndata: {json.dumps({'id': dl['id'], 'title': dl['title'], 'artist': dl['artist'], 'status': dl['status']})}\n\n"
+                        yield msg
+                except Exception:
+                    pass
                 while True:
                     try:
                         msg = q.get(timeout=30)

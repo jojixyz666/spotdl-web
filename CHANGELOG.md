@@ -1,5 +1,56 @@
 # Changelog
 
+## [2.1.0] - 2026-07-05
+
+### Added
+
+- **Cancel Download**
+  - Cancel button on active downloads (pending/processing/searching)
+  - Backend kills yt-dlp subprocess immediately
+  - SSE `download_cancelled` event for real-time UI update
+  - Works on both Dashboard download list and floating DownloadToast
+
+- **Format/Bitrate Selection (Fixed)**
+  - User-selected audio format (MP3/FLAC/M4A/OPUS/OGG/WAV) now actually used in download
+  - User-selected bitrate (128k-320k/auto/disable) now passed to yt-dlp
+  - Previously, format/bitrate from frontend were silently ignored (read from config.json)
+
+- **Improved Download Quality**
+  - YouTube search now tries 3 query variations x 4 player clients = 12 attempts (was 4)
+  - SoundCloud search now tries 2 query variations
+  - Better search increases full-track success rate, reduces Spotify preview fallback
+
+- **Batch ZIP Download**
+  - New endpoint: `GET /api/download/batch/<batch_id>/zip`
+  - Download ZIP button on history detail page works correctly
+
+- **SSE Hot Reload**
+  - Dashboard download list updates in real-time via SSE (no page refresh needed)
+  - SSE broadcasts active download status on new connection (reconnect recovery)
+
+- **Download History Improvements**
+  - History detail page properly merges track metadata with download status
+  - Shows completed/processing counts in header
+  - Re-download button for failed tracks
+
+### Fixed
+
+- Spotify preview fallback now uses user-selected format (was always MP3)
+- Spotify preview fallback saves with correct file extension
+- History detail page data structure parsing (was broken)
+- DownloadToast SSE reconnection (3s delay, proper cleanup)
+
+### Security
+
+- **CRITICAL**: Removed hardcoded fallback passwords from config.py and main.py
+- **CRITICAL**: Fixed path traversal probe in static proxy (added `realpath` validation)
+- **CRITICAL**: Admin auto-promotion on restart removed (only creates if no admin exists)
+- **CRITICAL**: Removed hardcoded `admin123` password from migration code
+- Reduced `MAX_CONTENT_LENGTH` from 500MB to 5MB (only JSON payloads accepted)
+- Added `config.json` to `.gitignore`
+- Added `cancelled` status to downloads DB enum
+- Database migration auto-adds `cancelled` to existing installations
+
 ## [1.0.0] - 2026-07-04
 
 ### Added

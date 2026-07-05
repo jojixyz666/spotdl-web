@@ -77,7 +77,7 @@ export const api = {
     return res.json()
   },
 
-  async downloadBatch(tracks, collectionName, contentType, fromHistory = false) {
+  async downloadBatch(tracks, collectionName, contentType, fromHistory = false, audioFormat = 'mp3', bitrate = '128k') {
     const csrf = await this.getCsrf()
     const res = await request('/api/download/batch', {
       method: 'POST',
@@ -87,6 +87,8 @@ export const api = {
         collection_name: collectionName,
         content_type: contentType,
         from_history: fromHistory,
+        audio_format: audioFormat,
+        bitrate,
         _csrf_token: csrf,
       }),
     })
@@ -106,6 +108,16 @@ export const api = {
   async deleteDownload(id) {
     const csrf = await this.getCsrf()
     const res = await request(`/api/delete/${id}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ _csrf_token: csrf }),
+    })
+    return res.json()
+  },
+
+  async cancelDownload(id) {
+    const csrf = await this.getCsrf()
+    const res = await request(`/api/cancel/${id}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ _csrf_token: csrf }),

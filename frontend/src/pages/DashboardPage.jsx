@@ -1,10 +1,10 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { useAuth } from '../lib/auth'
 import { useToast } from '../lib/toast'
 import { api } from '../lib/api'
 import { formatDuration, timeAgo } from '../lib/utils'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Search, Play, Pause, Download, Music, ExternalLink, Check, Loader2, Trash2, X, ChevronRight } from 'lucide-react'
+import { Search, Play, Pause, Download, Music, ExternalLink, Check, Loader2, Trash2, X, ChevronRight, XCircle } from 'lucide-react'
 
 export default function DashboardPage() {
   const { user } = useAuth()
@@ -20,6 +20,7 @@ export default function DashboardPage() {
   const [playingId, setPlayingId] = useState(null)
   const [audioFormat, setAudioFormat] = useState('mp3')
   const [bitrate, setBitrate] = useState('128k')
+  const esRef = useRef(null)
 
   const loadDownloads = useCallback(async (p = 1, append = false) => {
     setDownloadsLoading(true)
@@ -36,7 +37,87 @@ export default function DashboardPage() {
     setDownloadsLoading(false)
   }, [])
 
-  useState(() => { loadDownloads() }, [loadDownloads])
+  useEffect(() => { loadDownloads() }, [loadDownloads])
+
+  useEffect(() => {
+    const connect = () => {
+      const es = new EventSource('/api/events')
+      esRef.current = es
+
+      const handleUpdate = (e) => {
+        try {
+          const data = JSON.parse(e.data)
+          setDownloads(prev => {
+            const idx = prev.findIndex(d => d.id === data.id)
+            if (idx >= 0) {
+              const next = [...prev]
+              next[idx] = { ...next[idx], status: data.status, source: data.source }
+              return next
+            }
+            return [{ id: data.id, title: data.title, artist: data.artist, status: data.status, image_url: null, created_at: new Date().toISOString() }, ...prev]
+          })
+        } catch {}
+      }
+
+      const handleComplete = (e) => {
+        try {
+          const data = JSON.parse(e.data)
+          setDownloads(prev => {
+            const idx = prev.findIndex(d => d.id === data.id)
+            if (idx >= 0) {
+              const next = [...prev]
+              next[idx] = { ...next[idx], status: 'completed', filename: data.filename }
+              return next
+            }
+            return [{ id: data.id, title: data.title, artist: data.artist, status: 'completed', filename: data.filename, created_at: new Date().toISOString() }, ...prev]
+          })
+        } catch {}
+      }
+
+      const handleFailed = (e) => {
+        try {
+          const data = JSON.parse(e.data)
+          setDownloads(prev => {
+            const idx = prev.findIndex(d => d.id === data.id)
+            if (idx >= 0) {
+              const next = [...prev]
+              next[idx] = { ...next[idx], status: 'failed' }
+              return next
+            }
+            return prev
+          })
+        } catch {}
+      }
+
+      const handleCancelled = (e) => {
+        try {
+          const data = JSON.parse(e.data)
+          setDownloads(prev => {
+            const idx = prev.findIndex(d => d.id === data.id)
+            if (idx >= 0) {
+              const next = [...prev]
+              next[idx] = { ...next[idx], status: 'cancelled' }
+              return next
+            }
+            return prev
+          })
+        } catch {}
+      }
+
+      es.addEventListener('download_update', handleUpdate)
+      es.addEventListener('download_complete', handleComplete)
+      es.addEventListener('download_failed', handleFailed)
+      es.addEventListener('download_cancelled', handleCancelled)
+
+      es.onerror = () => {
+        es.close()
+        setTimeout(connect, 5000)
+      }
+    }
+
+    connect()
+    return () => esRef.current?.close()
+  }, [])
 
   const handleSearch = async () => {
     if (!url.trim()) return
@@ -57,7 +138,7 @@ export default function DashboardPage() {
 
   const handleDownload = async (track) => {
     try {
-      const res = await api.downloadTrack(track)
+      const res = await api.downloadTrack({ ...track, audio_format: audioFormat, bitrate })
       if (res.error) {
         toast.error(res.error)
       } else {
@@ -71,7 +152,7 @@ export default function DashboardPage() {
 
   const handleBatchDownload = async (tracks, name, type) => {
     try {
-      const res = await api.downloadBatch(tracks, name, type)
+      const res = await api.downloadBatch(tracks, name, type, false, audioFormat, bitrate)
       if (res.error) {
         toast.error(res.error)
       } else {
@@ -90,6 +171,20 @@ export default function DashboardPage() {
       toast.success('Deleted')
     } catch {
       toast.error('Delete failed')
+    }
+  }
+
+  const handleCancel = async (id) => {
+    try {
+      const res = await api.cancelDownload(id)
+      if (res.error) {
+        toast.error(res.error)
+      } else {
+        setDownloads(prev => prev.map(d => d.id === id ? { ...d, status: 'cancelled' } : d))
+        toast.success('Download cancelled')
+      }
+    } catch {
+      toast.error('Cancel failed')
     }
   }
 
@@ -201,7 +296,7 @@ export default function DashboardPage() {
               </div>
             )}
             {downloads.map(d => (
-              <DownloadItem key={d.id} data={d} onDelete={handleDelete} />
+              <DownloadItem key={d.id} data={d} onDelete={handleDelete} onCancel={handleCancel} />
             ))}
             {hasMore && (
               <div className="py-3 text-center">
@@ -368,7 +463,7 @@ function PlaylistPreview({ data, onDownload, onBatch, playingId, togglePreview, 
   )
 }
 
-function DownloadItem({ data, onDelete }) {
+function DownloadItem({ data, onDelete, onCancel }) {
   const [confirming, setConfirming] = useState(false)
 
   const statusColors = {
@@ -377,6 +472,7 @@ function DownloadItem({ data, onDelete }) {
     searching: 'badge-blue',
     completed: 'badge-green',
     failed: 'badge-red',
+    cancelled: 'badge-gray',
   }
 
   const statusLabels = {
@@ -385,7 +481,10 @@ function DownloadItem({ data, onDelete }) {
     searching: `Searching ${data.source || ''}...`,
     completed: 'Completed',
     failed: 'Failed',
+    cancelled: 'Cancelled',
   }
+
+  const isActive = data.status === 'pending' || data.status === 'processing' || data.status === 'searching'
 
   return (
     <div className="flex items-center gap-4 px-6 py-3 hover:bg-white/[0.02] transition-colors group">
@@ -418,15 +517,24 @@ function DownloadItem({ data, onDelete }) {
               </button>
             )}
           </>
+        ) : data.status === 'cancelled' ? (
+          <span className="badge-gray">Cancelled</span>
         ) : data.status === 'failed' ? (
           <span className="badge-red">Failed</span>
         ) : (
-          <span className={`${statusColors[data.status] || 'badge-gray'} flex items-center gap-1.5`}>
-            {(data.status === 'pending' || data.status === 'processing' || data.status === 'searching') && (
-              <Loader2 size={12} className="animate-spin-slow" />
-            )}
-            {statusLabels[data.status] || data.status}
-          </span>
+          <>
+            <span className={`${statusColors[data.status] || 'badge-gray'} flex items-center gap-1.5`}>
+              {isActive && <Loader2 size={12} className="animate-spin-slow" />}
+              {statusLabels[data.status] || data.status}
+            </span>
+            <button
+              onClick={() => onCancel(data.id)}
+              className="p-1.5 rounded-lg hover:bg-red-500/10 text-text-muted hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
+              title="Cancel download"
+            >
+              <XCircle size={14} />
+            </button>
+          </>
         )}
       </div>
     </div>

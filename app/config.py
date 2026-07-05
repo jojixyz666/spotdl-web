@@ -10,7 +10,7 @@ HTTPS_ENABLED = os.environ.get('HTTPS_ENABLED', '0') == '1'
 DB_CONFIG = {
     'host': os.environ.get('DB_HOST', 'localhost'),
     'user': os.environ.get('DB_USER', 'spotdl_user'),
-    'password': os.environ.get('DB_PASSWORD', 'SpotDL@Pass123'),
+    'password': os.environ.get('DB_PASSWORD', ''),
     'database': os.environ.get('DB_NAME', 'spotdl_db'),
     'autocommit': True,
     'pool_name': 'spotdl_pool',
@@ -19,7 +19,7 @@ DB_CONFIG = {
 }
 
 ADMIN_USER = os.environ.get('ADMIN_USER', 'admin')
-ADMIN_PASS = os.environ.get('ADMIN_PASS', 'admin123')
+ADMIN_PASS = os.environ.get('ADMIN_PASS', '')
 
 SPOTIFY_CLIENT_ID = os.environ.get('SPOTIFY_CLIENT_ID', '')
 SPOTIFY_CLIENT_SECRET = os.environ.get('SPOTIFY_CLIENT_SECRET', '')

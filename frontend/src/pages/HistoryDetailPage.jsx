@@ -3,8 +3,8 @@ import { useParams, Link } from 'react-router-dom'
 import { api } from '../lib/api'
 import { useToast } from '../lib/toast'
 import { formatDuration, timeAgo } from '../lib/utils'
-import { motion, AnimatePresence } from 'framer-motion'
-import { ArrowLeft, Download, Play, Pause, Check, Loader2, ExternalLink, Disc3, List, Music, ChevronDown, PackageOpen } from 'lucide-react'
+import { motion } from 'framer-motion'
+import { ArrowLeft, Download, Play, Pause, Loader2, Disc3, List, Music, PackageOpen } from 'lucide-react'
 
 export default function HistoryDetailPage() {
   const { id } = useParams()
@@ -17,14 +17,36 @@ export default function HistoryDetailPage() {
   const [playingId, setPlayingId] = useState(null)
   const audioRef = useRef(null)
 
-  useEffect(() => {
+  const loadDetail = () => {
     setLoading(true)
     api.getHistoryDetail(id).then(data => {
-      setItem(data.item)
-      setTracks(data.tracks || [])
+      setItem(data)
+      const trackData = Array.isArray(data.track_data) ? data.track_data : []
+      const downloads = Array.isArray(data.downloads) ? data.downloads : []
+      const merged = trackData.map((t, i) => {
+        const dl = downloads.find(d =>
+          d.spotify_url === t.url || d.title === t.title
+        )
+        return {
+          ...t,
+          dl_status: dl?.status || null,
+          dl_id: dl?.id || null,
+          dl_filename: dl?.filename || null,
+        }
+      })
+      setTracks(merged.length > 0 ? merged : downloads.map(d => ({
+        title: d.title,
+        artist: d.artist,
+        url: d.spotify_url,
+        dl_status: d.status,
+        dl_id: d.id,
+        dl_filename: d.filename,
+      })))
       setZipAvailable(data.zip_available || false)
     }).catch(() => toast.error('Failed to load')).finally(() => setLoading(false))
-  }, [id])
+  }
+
+  useEffect(() => { loadDetail() }, [id])
 
   const togglePreview = (idx, src) => {
     if (audioRef.current) {
@@ -103,6 +125,8 @@ export default function HistoryDetailPage() {
   const isMultiTrack = item.content_type !== 'track' && tracks.length > 1
   const allSelected = selected.size === tracks.length && tracks.length > 0
   const someSelected = selected.size > 0 && !allSelected
+  const completedCount = tracks.filter(t => t.dl_status === 'completed').length
+  const processingCount = tracks.filter(t => t.dl_status === 'pending' || t.dl_status === 'processing').length
 
   return (
     <div className="space-y-6">
@@ -110,7 +134,6 @@ export default function HistoryDetailPage() {
         <ArrowLeft size={16} /> Back to History
       </Link>
 
-      {/* Header */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="card overflow-hidden">
         <div className="flex flex-col sm:flex-row items-center gap-5 p-6">
           {item.image_url ? (
@@ -123,11 +146,14 @@ export default function HistoryDetailPage() {
           <div className="flex-1 min-w-0 text-center sm:text-left">
             <p className="text-xs uppercase tracking-wider text-spotify-green font-medium mb-1">{typeLabel}</p>
             <h2 className="text-2xl font-bold text-text-primary">{item.collection_name}</h2>
-            <p className="text-text-secondary text-sm mt-1">{tracks.length} tracks &middot; {timeAgo(item.created_at)}</p>
+            <p className="text-text-secondary text-sm mt-1">
+              {tracks.length} tracks &middot; {timeAgo(item.created_at)}
+              {completedCount > 0 && <span className="text-spotify-green ml-2">| {completedCount} downloaded</span>}
+              {processingCount > 0 && <span className="text-blue-400 ml-2">| {processingCount} processing</span>}
+            </p>
           </div>
         </div>
 
-        {/* Toolbar */}
         {isMultiTrack && (
           <div className="px-6 py-3 border-t border-white/5 flex items-center gap-3 flex-wrap bg-surface-3/30">
             <label className="flex items-center gap-2 cursor-pointer text-sm text-text-secondary select-none">
@@ -141,7 +167,7 @@ export default function HistoryDetailPage() {
                 <Download size={14} /> Download Selected ({selected.size})
               </motion.button>
             )}
-            {zipAvailable && (
+            {zipAvailable && item.batch_id && (
               <a href={`/api/download/batch/${item.batch_id}/zip`} className="btn-primary btn-sm">
                 <PackageOpen size={14} /> Download ZIP
               </a>
@@ -151,12 +177,11 @@ export default function HistoryDetailPage() {
         )}
       </motion.div>
 
-      {/* Track List */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="card">
         <div className="divide-y divide-white/3">
           {tracks.map((t, i) => (
             <motion.div
-              key={t.id || i}
+              key={t.dl_id || t.id || i}
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: i * 0.02 }}
@@ -187,10 +212,14 @@ export default function HistoryDetailPage() {
                 )}
                 {t.dl_status === 'completed' && t.dl_id ? (
                   <a href={`/api/download/file/${t.dl_id}`} className="btn-primary btn-sm">
-                    <Download size={14} /> MP3
+                    <Download size={14} /> {t.dl_filename?.split('.').pop()?.toUpperCase() || 'File'}
                   </a>
                 ) : t.dl_status === 'processing' || t.dl_status === 'pending' ? (
                   <span className="badge-blue"><Loader2 size={12} className="animate-spin-slow" /> {t.dl_status}</span>
+                ) : t.dl_status === 'failed' ? (
+                  <button onClick={() => downloadSingle(t)} className="btn-ghost btn-sm !px-2 text-red-400" title="Retry download">
+                    <Download size={14} />
+                  </button>
                 ) : (
                   <button onClick={() => downloadSingle(t)} className="btn-ghost btn-sm !px-2" title="Download">
                     <Download size={14} />
