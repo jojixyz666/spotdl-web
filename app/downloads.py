@@ -94,6 +94,44 @@ def bounded_download(fn, *args):
         fn(*args)
 
 
+def _sc_search_best(artist, title, ytdlp_bin, timeout=30):
+    """Search SoundCloud for best full track (not preview). Returns URL or None."""
+    queries = [
+        f'scsearch10:{artist} - {title}',
+        f'scsearch10:{title} {artist}',
+        f'scsearch10:{title}',
+    ]
+    for query in queries:
+        try:
+            cmd = [
+                ytdlp_bin, query,
+                '--flat-playlist', '--print', '%(url)s %(duration)s',
+                '--no-warnings', '--quiet',
+            ]
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+            if result.returncode != 0:
+                continue
+            candidates = []
+            for line in result.stdout.strip().split('\n'):
+                if not line.strip():
+                    continue
+                parts = line.rsplit(' ', 1)
+                if len(parts) == 2:
+                    url, dur_str = parts
+                    try:
+                        dur = float(dur_str)
+                        candidates.append((url, dur))
+                    except ValueError:
+                        continue
+            valid = [(u, d) for u, d in candidates if d > 35]
+            if valid:
+                valid.sort(key=lambda x: x[1], reverse=True)
+                return valid[0][0]
+        except Exception:
+            continue
+    return None
+
+
 def _kill_process(download_id):
     with active_processes_lock:
         proc = active_processes.get(download_id)
@@ -198,7 +236,33 @@ def run_download(download_id, spotify_url, user_id, title, artist, image_url, au
         else:
             os.remove(os.path.join(output_dir, existing))
 
-    # ── Strategy 1: SoundCloud (best chance for full songs) ──
+    # ── Strategy 1: SoundCloud smart search (pick longest full track) ──
+    sc_url = _sc_search_best(artist, title, YTDLP_BIN)
+    if sc_url and not _is_cancelled():
+        try:
+            cmd = [
+                YTDLP_BIN, sc_url,
+                '--extract-audio', '--audio-format', audio_format,
+                *bitrate_args,
+                '--output', output_template, '--no-playlist',
+                '--ffmpeg-location', FFMPEG_BIN, '--quiet', '--no-warnings',
+                '--retries', '3',
+            ]
+            result = _run_cmd(cmd, 120)
+            if result.returncode == 0:
+                found = _find_file_in_dir(output_dir, safe_name, audio_format)
+                if found:
+                    fpath = os.path.join(output_dir, found)
+                    is_short, duration = _is_preview_file(fpath)
+                    if not is_short:
+                        _mark_completed(found, f'Downloaded from SoundCloud ({int(duration)}s).')
+                        return
+                    else:
+                        os.remove(fpath)
+        except Exception:
+            pass
+
+    # ── Strategy 2: SoundCloud fallback ──
     sc_queries = [
         f'scsearch3:{artist} - {title}',
         f'scsearch3:{title} {artist}',
@@ -231,7 +295,7 @@ def run_download(download_id, spotify_url, user_id, title, artist, image_url, au
         except Exception:
             continue
 
-    # ── Strategy 2: YouTube ──
+    # ── Strategy 3: YouTube ──
     clients = ['web', 'web_creator', 'ios', 'mweb', 'tv']
     search_queries = [
         f'ytsearch3:{artist} - {title}',
@@ -388,7 +452,33 @@ def run_batch_download(download_id, spotify_url, user_id, title, artist, image_u
         else:
             os.remove(os.path.join(batch_dir, existing))
 
-    # ── Strategy 1: SoundCloud (best chance for full songs) ──
+    # ── Strategy 1: SoundCloud smart search (pick longest full track) ──
+    sc_url = _sc_search_best(artist, title, YTDLP_BIN)
+    if sc_url and not _is_cancelled():
+        try:
+            cmd = [
+                YTDLP_BIN, sc_url,
+                '--extract-audio', '--audio-format', audio_format,
+                *bitrate_args,
+                '--output', output_template, '--no-playlist',
+                '--ffmpeg-location', FFMPEG_BIN, '--quiet', '--no-warnings',
+                '--retries', '3',
+            ]
+            result = _run_cmd(cmd, 120)
+            if result.returncode == 0:
+                found = _find_file_in_dir(batch_dir, safe_name, audio_format)
+                if found:
+                    fpath = os.path.join(batch_dir, found)
+                    is_short, duration = _is_preview_file(fpath)
+                    if not is_short:
+                        _mark_completed(found, f'Downloaded from SoundCloud ({int(duration)}s).')
+                        return
+                    else:
+                        os.remove(fpath)
+        except Exception:
+            pass
+
+    # ── Strategy 2: SoundCloud fallback ──
     sc_queries = [
         f'scsearch3:{artist} - {title}',
         f'scsearch3:{title} {artist}',
@@ -421,7 +511,7 @@ def run_batch_download(download_id, spotify_url, user_id, title, artist, image_u
         except Exception:
             continue
 
-    # ── Strategy 2: YouTube ──
+    # ── Strategy 3: YouTube ──
     clients = ['web', 'web_creator', 'ios', 'mweb', 'tv']
     search_queries = [
         f'ytsearch3:{artist} - {title}',
