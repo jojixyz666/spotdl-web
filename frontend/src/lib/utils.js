@@ -1,3 +1,9 @@
+import { clsx } from 'clsx'
+
+export function cn(...inputs) {
+  return clsx(inputs)
+}
+
 export function formatDuration(ms) {
   if (!ms) return ''
   const s = Math.floor(ms / 1000)
@@ -21,8 +27,4 @@ export function timeAgo(dateStr) {
   if (diff < 86400) return Math.floor(diff / 3600) + 'h ago'
   if (diff < 604800) return Math.floor(diff / 86400) + 'd ago'
   return d.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })
-}
-
-export function cx(...args) {
-  return args.filter(Boolean).join(' ')
 }

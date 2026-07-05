@@ -5,6 +5,9 @@ import { useToast } from '../lib/toast'
 import { formatDuration, timeAgo } from '../lib/utils'
 import { motion } from 'framer-motion'
 import { ArrowLeft, Download, Play, Pause, Loader2, Disc3, List, Music, PackageOpen } from 'lucide-react'
+import { Button } from '../components/ui/Button'
+import { Badge } from '../components/ui/Badge'
+import { Card, CardContent, CardHeader } from '../components/ui/Card'
 
 export default function HistoryDetailPage() {
   const { id } = useParams()
@@ -106,16 +109,16 @@ export default function HistoryDetailPage() {
   if (loading) {
     return (
       <div className="py-20 text-center">
-        <div className="w-8 h-8 border-2 border-surface-5 border-t-spotify-green rounded-full animate-spin-slow mx-auto" />
+        <div className="w-8 h-8 border-2 border-nb-border border-t-nb-main rounded-full animate-spin-slow mx-auto" />
       </div>
     )
   }
 
   if (!item) {
     return (
-      <div className="py-20 text-center text-text-muted">
-        <p>History entry not found</p>
-        <Link to="/history" className="btn-ghost mt-4 inline-flex"><ArrowLeft size={16} /> Back</Link>
+      <div className="py-20 text-center text-nb-muted">
+        <p className="font-heading font-semibold">History entry not found</p>
+        <Link to="/history"><Button variant="ghost" className="mt-4"><ArrowLeft size={16} /> Back</Button></Link>
       </div>
     )
   }
@@ -130,105 +133,111 @@ export default function HistoryDetailPage() {
 
   return (
     <div className="space-y-6">
-      <Link to="/history" className="inline-flex items-center gap-2 text-text-secondary hover:text-text-primary transition-colors text-sm">
+      <Link to="/history" className="inline-flex items-center gap-2 text-nb-muted hover:text-nb-foreground transition-colors text-sm font-heading font-semibold">
         <ArrowLeft size={16} /> Back to History
       </Link>
 
-      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="card overflow-hidden">
-        <div className="flex flex-col sm:flex-row items-center gap-5 p-6">
-          {item.image_url ? (
-            <img src={item.image_url} className="w-24 h-24 rounded-xl object-cover shadow-xl flex-shrink-0" alt="" />
-          ) : (
-            <div className="w-24 h-24 rounded-xl bg-surface-4 flex items-center justify-center flex-shrink-0">
-              <Icon size={32} className="text-text-muted" />
-            </div>
-          )}
-          <div className="flex-1 min-w-0 text-center sm:text-left">
-            <p className="text-xs uppercase tracking-wider text-spotify-green font-medium mb-1">{typeLabel}</p>
-            <h2 className="text-2xl font-bold text-text-primary">{item.collection_name}</h2>
-            <p className="text-text-secondary text-sm mt-1">
-              {tracks.length} tracks &middot; {timeAgo(item.created_at)}
-              {completedCount > 0 && <span className="text-spotify-green ml-2">| {completedCount} downloaded</span>}
-              {processingCount > 0 && <span className="text-blue-400 ml-2">| {processingCount} processing</span>}
-            </p>
-          </div>
-        </div>
-
-        {isMultiTrack && (
-          <div className="px-6 py-3 border-t border-white/5 flex items-center gap-3 flex-wrap bg-surface-3/30">
-            <label className="flex items-center gap-2 cursor-pointer text-sm text-text-secondary select-none">
-              <input type="checkbox" checked={allSelected} ref={el => { if (el) el.indeterminate = someSelected }} onChange={toggleAll} className="w-4 h-4 accent-spotify-green rounded" />
-              Select all
-            </label>
-            <span className="text-xs text-text-muted">{selected.size} selected</span>
-            <div className="flex-1" />
-            {selected.size > 0 && (
-              <motion.button initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} onClick={downloadSelected} className="btn-primary btn-sm">
-                <Download size={14} /> Download Selected ({selected.size})
-              </motion.button>
-            )}
-            {zipAvailable && item.batch_id && (
-              <a href={`/api/download/batch/${item.batch_id}/zip`} className="btn-primary btn-sm">
-                <PackageOpen size={14} /> Download ZIP
-              </a>
-            )}
-            <button onClick={downloadAll} className="btn-ghost btn-sm">Download All</button>
-          </div>
-        )}
-      </motion.div>
-
-      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="card">
-        <div className="divide-y divide-white/3">
-          {tracks.map((t, i) => (
-            <motion.div
-              key={t.dl_id || t.id || i}
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: i * 0.02 }}
-              className={`flex items-center gap-3 px-6 py-3 transition-colors hover:bg-white/[0.02] ${selected.has(i) ? 'bg-spotify-green/[0.04]' : ''}`}
-            >
-              {isMultiTrack && (
-                <input type="checkbox" checked={selected.has(i)} onChange={() => toggleSelect(i)} className="w-4 h-4 accent-spotify-green rounded flex-shrink-0" />
-              )}
-              <span className="w-7 text-right text-xs text-text-muted flex-shrink-0">{t.index || i + 1}</span>
-              {t.image_url ? (
-                <img src={t.image_url} className="w-10 h-10 rounded object-cover flex-shrink-0" alt="" />
-              ) : item.image_url ? (
-                <img src={item.image_url} className="w-10 h-10 rounded object-cover flex-shrink-0" alt="" />
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+        <Card>
+          <CardHeader>
+            <div className="flex flex-col sm:flex-row items-center gap-5">
+              {item.image_url ? (
+                <img src={item.image_url} className="w-24 h-24 rounded-nb object-cover border-2 border-nb-border shadow-nb flex-shrink-0" alt="" />
               ) : (
-                <div className="w-10 h-10 rounded bg-surface-4 flex items-center justify-center flex-shrink-0">
-                  <Music size={14} className="text-text-muted" />
+                <div className="w-24 h-24 rounded-nb bg-nb-secondary border-2 border-nb-border flex items-center justify-center flex-shrink-0">
+                  <Icon size={32} className="text-nb-muted" />
                 </div>
               )}
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-text-primary truncate">{t.title}</p>
-                <p className="text-xs text-text-secondary truncate">{t.artist}</p>
+              <div className="flex-1 min-w-0 text-center sm:text-left">
+                <Badge className="mb-2">{typeLabel}</Badge>
+                <h2 className="text-2xl font-heading font-bold text-nb-foreground">{item.collection_name}</h2>
+                <p className="text-nb-muted text-sm mt-1 font-heading">
+                  {tracks.length} tracks &middot; {timeAgo(item.created_at)}
+                  {completedCount > 0 && <span className="text-nb-main ml-2">| {completedCount} downloaded</span>}
+                  {processingCount > 0 && <span className="text-nb-info ml-2">| {processingCount} processing</span>}
+                </p>
               </div>
-              <div className="flex items-center gap-1 flex-shrink-0">
-                {t.preview_url && (
-                  <button onClick={() => togglePreview(i, t.preview_url)} className="p-2 rounded-lg hover:bg-white/5 text-text-muted hover:text-text-primary transition-colors">
-                    {playingId === i ? <Pause size={14} /> : <Play size={14} />}
-                  </button>
+            </div>
+          </CardHeader>
+
+          {isMultiTrack && (
+            <div className="px-6 py-3 border-t-2 border-nb-border flex items-center gap-3 flex-wrap bg-nb-secondary">
+              <label className="flex items-center gap-2 cursor-pointer text-sm text-nb-muted font-heading font-semibold select-none">
+                <input type="checkbox" checked={allSelected} ref={el => { if (el) el.indeterminate = someSelected }} onChange={toggleAll} className="w-4 h-4 accent-nb-main rounded" />
+                Select all
+              </label>
+              <span className="text-xs text-nb-muted2 font-heading">{selected.size} selected</span>
+              <div className="flex-1" />
+              {selected.size > 0 && (
+                <Button size="sm" onClick={downloadSelected}>
+                  <Download size={14} /> Download Selected ({selected.size})
+                </Button>
+              )}
+              {zipAvailable && item.batch_id && (
+                <a href={`/api/download/batch/${item.batch_id}/zip`}>
+                  <Button size="sm"><PackageOpen size={14} /> Download ZIP</Button>
+                </a>
+              )}
+              <Button variant="ghost" size="sm" onClick={downloadAll}>Download All</Button>
+            </div>
+          )}
+        </Card>
+      </motion.div>
+
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
+        <Card>
+          <div className="divide-y-2 divide-nb-border">
+            {tracks.map((t, i) => (
+              <motion.div
+                key={t.dl_id || t.id || i}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: i * 0.02 }}
+                className={`flex items-center gap-3 px-6 py-3 transition-colors hover:bg-nb-secondary/50 ${selected.has(i) ? 'bg-nb-main/5' : ''}`}
+              >
+                {isMultiTrack && (
+                  <input type="checkbox" checked={selected.has(i)} onChange={() => toggleSelect(i)} className="w-4 h-4 accent-nb-main rounded flex-shrink-0" />
                 )}
-                {t.dl_status === 'completed' && t.dl_id ? (
-                  <a href={`/api/download/file/${t.dl_id}`} className="btn-primary btn-sm">
-                    <Download size={14} /> {t.dl_filename?.split('.').pop()?.toUpperCase() || 'File'}
-                  </a>
-                ) : t.dl_status === 'processing' || t.dl_status === 'pending' ? (
-                  <span className="badge-blue"><Loader2 size={12} className="animate-spin-slow" /> {t.dl_status}</span>
-                ) : t.dl_status === 'failed' ? (
-                  <button onClick={() => downloadSingle(t)} className="btn-ghost btn-sm !px-2 text-red-400" title="Retry download">
-                    <Download size={14} />
-                  </button>
+                <span className="w-7 text-right text-xs text-nb-muted2 font-heading flex-shrink-0">{t.index || i + 1}</span>
+                {t.image_url ? (
+                  <img src={t.image_url} className="w-10 h-10 rounded-nb object-cover border-2 border-nb-border flex-shrink-0" alt="" />
+                ) : item.image_url ? (
+                  <img src={item.image_url} className="w-10 h-10 rounded-nb object-cover border-2 border-nb-border flex-shrink-0" alt="" />
                 ) : (
-                  <button onClick={() => downloadSingle(t)} className="btn-ghost btn-sm !px-2" title="Download">
-                    <Download size={14} />
-                  </button>
+                  <div className="w-10 h-10 rounded-nb bg-nb-secondary border-2 border-nb-border flex items-center justify-center flex-shrink-0">
+                    <Music size={14} className="text-nb-muted" />
+                  </div>
                 )}
-              </div>
-            </motion.div>
-          ))}
-        </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-heading font-semibold text-nb-foreground truncate">{t.title}</p>
+                  <p className="text-xs text-nb-muted truncate">{t.artist}</p>
+                </div>
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  {t.preview_url && (
+                    <Button variant="ghost" size="icon-sm" onClick={() => togglePreview(i, t.preview_url)}>
+                      {playingId === i ? <Pause size={14} /> : <Play size={14} />}
+                    </Button>
+                  )}
+                  {t.dl_status === 'completed' && t.dl_id ? (
+                    <a href={`/api/download/file/${t.dl_id}`}>
+                      <Button size="sm"><Download size={14} /> {t.dl_filename?.split('.').pop()?.toUpperCase() || 'File'}</Button>
+                    </a>
+                  ) : t.dl_status === 'processing' || t.dl_status === 'pending' ? (
+                    <Badge variant="info"><Loader2 size={12} className="animate-spin-slow" /> {t.dl_status}</Badge>
+                  ) : t.dl_status === 'failed' ? (
+                    <Button variant="ghost" size="icon-sm" onClick={() => downloadSingle(t)} title="Retry download">
+                      <Download size={14} />
+                    </Button>
+                  ) : (
+                    <Button variant="ghost" size="icon-sm" onClick={() => downloadSingle(t)} title="Download">
+                      <Download size={14} />
+                    </Button>
+                  )}
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </Card>
       </motion.div>
     </div>
   )

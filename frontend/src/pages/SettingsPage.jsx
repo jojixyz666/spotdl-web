@@ -4,6 +4,9 @@ import { useToast } from '../lib/toast'
 import { api } from '../lib/api'
 import { motion } from 'framer-motion'
 import { User, Lock, Save, Loader2 } from 'lucide-react'
+import { Button } from '../components/ui/Button'
+import { Input } from '../components/ui/Input'
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 
 export default function SettingsPage() {
   const { user } = useAuth()
@@ -40,35 +43,51 @@ export default function SettingsPage() {
   return (
     <div className="max-w-lg space-y-6">
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-        <h2 className="text-2xl font-bold text-text-primary">Account Settings</h2>
+        <h2 className="text-2xl font-heading font-bold text-nb-foreground">Account Settings</h2>
       </motion.div>
 
-      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="card p-6">
-        <div className="flex items-center gap-3 mb-5">
-          <div className="w-10 h-10 rounded-xl bg-spotify-green/10 flex items-center justify-center"><User size={18} className="text-spotify-green" /></div>
-          <h3 className="font-bold text-text-primary">Username</h3>
-        </div>
-        <form onSubmit={updateUsername} className="flex gap-3">
-          <input type="text" value={username} onChange={e => setUsername(e.target.value)} className="input flex-1" minLength={3} />
-          <motion.button type="submit" disabled={loading || username === user?.username} whileTap={{ scale: 0.97 }} className="btn-primary">
-            {loading ? <Loader2 size={16} className="animate-spin-slow" /> : <><Save size={16} /> Save</>}
-          </motion.button>
-        </form>
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-nb bg-nb-main/20 border-2 border-nb-border flex items-center justify-center">
+                <User size={18} className="text-nb-main" />
+              </div>
+              <CardTitle>Username</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={updateUsername} className="flex gap-3">
+              <Input type="text" value={username} onChange={e => setUsername(e.target.value)} className="flex-1" minLength={3} />
+              <Button type="submit" disabled={loading || username === user?.username}>
+                {loading ? <Loader2 size={16} className="animate-spin-slow" /> : <><Save size={16} /> Save</>}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
       </motion.div>
 
-      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="card p-6">
-        <div className="flex items-center gap-3 mb-5">
-          <div className="w-10 h-10 rounded-xl bg-spotify-green/10 flex items-center justify-center"><Lock size={18} className="text-spotify-green" /></div>
-          <h3 className="font-bold text-text-primary">Password</h3>
-        </div>
-        <form onSubmit={updatePassword} className="space-y-3">
-          <input type="password" value={currentPw} onChange={e => setCurrentPw(e.target.value)} className="input" placeholder="Current password" required />
-          <input type="password" value={newPw} onChange={e => setNewPw(e.target.value)} className="input" placeholder="New password (min 6 chars)" required minLength={6} />
-          <input type="password" value={confirmPw} onChange={e => setConfirmPw(e.target.value)} className="input" placeholder="Confirm new password" required />
-          <motion.button type="submit" disabled={loading || !currentPw || !newPw} whileTap={{ scale: 0.97 }} className="btn-primary">
-            {loading ? <Loader2 size={16} className="animate-spin-slow" /> : <><Save size={16} /> Update Password</>}
-          </motion.button>
-        </form>
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-nb bg-nb-main/20 border-2 border-nb-border flex items-center justify-center">
+                <Lock size={18} className="text-nb-main" />
+              </div>
+              <CardTitle>Password</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={updatePassword} className="space-y-3">
+              <Input type="password" value={currentPw} onChange={e => setCurrentPw(e.target.value)} placeholder="Current password" required />
+              <Input type="password" value={newPw} onChange={e => setNewPw(e.target.value)} placeholder="New password (min 6 chars)" required minLength={6} />
+              <Input type="password" value={confirmPw} onChange={e => setConfirmPw(e.target.value)} placeholder="Confirm new password" required />
+              <Button type="submit" disabled={loading || !currentPw || !newPw}>
+                {loading ? <Loader2 size={16} className="animate-spin-slow" /> : <><Save size={16} /> Update Password</>}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
       </motion.div>
     </div>
   )

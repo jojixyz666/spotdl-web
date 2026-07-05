@@ -11,7 +11,7 @@ const NAV_ITEMS = [
 
 const ADMIN_ITEMS = [
   { to: '/admin/users', label: 'Users', icon: Shield },
-  { to: '/admin/settings', label: 'App Settings', icon: Sliders },
+  { to: '/admin/settings', label: 'Settings', icon: Sliders },
 ]
 
 export default function Navbar() {
@@ -22,13 +22,13 @@ export default function Navbar() {
   const allItems = [...NAV_ITEMS, ...(user?.is_admin ? ADMIN_ITEMS : [])]
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 glass border-b border-white/5">
+    <nav className="fixed top-0 left-0 right-0 z-50 bg-nb-bg border-b-2 border-nb-border">
       <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
         <Link to="/dashboard" className="flex items-center gap-2.5 group">
-          <div className="w-8 h-8 rounded-lg bg-spotify-green flex items-center justify-center shadow-lg shadow-spotify-green/20 group-hover:shadow-spotify-green/40 transition-shadow">
-            <Music size={18} className="text-black" />
+          <div className="w-9 h-9 rounded-nb bg-nb-main border-2 border-nb-border shadow-nb-sm flex items-center justify-center group-hover:translate-x-nb-sm group-hover:translate-y-nb-sm group-hover:shadow-none transition-all">
+            <Music size={18} className="text-nb-main-foreground" />
           </div>
-          <span className="font-bold text-lg text-text-primary hidden sm:block">SpotDL</span>
+          <span className="font-heading font-bold text-lg text-nb-foreground hidden sm:block">SpotDL</span>
         </Link>
 
         {/* Desktop nav */}
@@ -39,10 +39,10 @@ export default function Navbar() {
               <Link
                 key={item.to}
                 to={item.to}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                className={`flex items-center gap-2 px-3 py-2 rounded-nb border-2 text-sm font-heading font-semibold transition-all duration-150 ${
                   active
-                    ? 'bg-white/10 text-text-primary'
-                    : 'text-text-secondary hover:text-text-primary hover:bg-white/5'
+                    ? 'bg-nb-main text-nb-main-foreground border-nb-border shadow-nb-sm'
+                    : 'bg-transparent text-nb-muted border-transparent hover:bg-nb-secondary hover:text-nb-foreground hover:border-nb-border hover:shadow-nb-sm'
                 }`}
               >
                 <item.icon size={16} />
@@ -53,11 +53,11 @@ export default function Navbar() {
         </div>
 
         <div className="hidden md:flex items-center gap-3">
-          <span className="text-sm text-text-secondary">{user?.username}</span>
-          <Link to="/settings" className="p-2 rounded-lg text-text-secondary hover:text-text-primary hover:bg-white/5 transition-all">
+          <span className="text-sm font-heading font-semibold text-nb-muted">{user?.username}</span>
+          <Link to="/settings" className="p-2 rounded-nb border-2 border-transparent text-nb-muted hover:bg-nb-secondary hover:text-nb-foreground hover:border-nb-border hover:shadow-nb-sm transition-all">
             <Settings size={18} />
           </Link>
-          <button onClick={logout} className="p-2 rounded-lg text-text-secondary hover:text-red-400 hover:bg-red-500/10 transition-all">
+          <button onClick={logout} className="p-2 rounded-nb border-2 border-transparent text-nb-muted hover:bg-nb-danger hover:text-white hover:border-nb-border hover:shadow-nb-sm transition-all">
             <LogOut size={18} />
           </button>
         </div>
@@ -65,7 +65,7 @@ export default function Navbar() {
         {/* Mobile toggle */}
         <button
           onClick={() => setMobileOpen(!mobileOpen)}
-          className="md:hidden p-2 rounded-lg text-text-secondary hover:bg-white/5"
+          className="md:hidden p-2 rounded-nb border-2 border-nb-border bg-nb-secondary text-nb-foreground"
         >
           {mobileOpen ? <X size={20} /> : <Menu size={20} />}
         </button>
@@ -79,7 +79,7 @@ export default function Navbar() {
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="md:hidden overflow-hidden glass border-b border-white/5"
+            className="md:hidden overflow-hidden bg-nb-bg border-b-2 border-nb-border"
           >
             <div className="px-4 py-3 flex flex-col gap-1">
               {allItems.map(item => {
@@ -89,8 +89,10 @@ export default function Navbar() {
                     key={item.to}
                     to={item.to}
                     onClick={() => setMobileOpen(false)}
-                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                      active ? 'bg-white/10 text-text-primary' : 'text-text-secondary hover:bg-white/5'
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-nb border-2 text-sm font-heading font-semibold transition-all ${
+                      active
+                        ? 'bg-nb-main text-nb-main-foreground border-nb-border shadow-nb-sm'
+                        : 'bg-transparent text-nb-muted border-transparent hover:bg-nb-secondary hover:text-nb-foreground hover:border-nb-border'
                     }`}
                   >
                     <item.icon size={18} />
@@ -98,11 +100,11 @@ export default function Navbar() {
                   </Link>
                 )
               })}
-              <hr className="border-white/5 my-2" />
-              <Link to="/settings" onClick={() => setMobileOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-text-secondary hover:bg-white/5">
+              <hr className="border-nb-border my-2" />
+              <Link to="/settings" onClick={() => setMobileOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-nb border-2 border-transparent text-sm font-heading font-semibold text-nb-muted hover:bg-nb-secondary hover:text-nb-foreground hover:border-nb-border">
                 <Settings size={18} /> Settings
               </Link>
-              <button onClick={() => { setMobileOpen(false); logout() }} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-red-400 hover:bg-red-500/10">
+              <button onClick={() => { setMobileOpen(false); logout() }} className="flex items-center gap-3 px-3 py-2.5 rounded-nb border-2 border-transparent text-sm font-heading font-semibold text-nb-danger hover:bg-nb-danger hover:text-white hover:border-nb-border">
                 <LogOut size={18} /> Sign Out
               </button>
             </div>

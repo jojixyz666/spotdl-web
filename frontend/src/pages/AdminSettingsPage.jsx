@@ -2,7 +2,12 @@ import { useState, useEffect } from 'react'
 import { api } from '../lib/api'
 import { useToast } from '../lib/toast'
 import { motion } from 'framer-motion'
-import { Sliders, Save, Loader2, Users, Download, Shield, Music } from 'lucide-react'
+import { Sliders, Save, Loader2, Download, Shield, Music } from 'lucide-react'
+import { Button } from '../components/ui/Button'
+import { Input } from '../components/ui/Input'
+import { Label } from '../components/ui/Label'
+import { Select } from '../components/ui/Select'
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 
 export default function AdminSettingsPage() {
   const toast = useToast()
@@ -25,85 +30,122 @@ export default function AdminSettingsPage() {
     setSaving(false)
   }
 
-  if (loading) return <div className="py-20 text-center"><div className="w-8 h-8 border-2 border-surface-5 border-t-spotify-green rounded-full animate-spin-slow mx-auto" /></div>
+  if (loading) return <div className="py-20 text-center"><div className="w-8 h-8 border-2 border-nb-border border-t-nb-main rounded-full animate-spin-slow mx-auto" /></div>
 
   return (
     <div className="max-w-lg space-y-6">
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-        <h2 className="text-2xl font-bold text-text-primary">App Settings</h2>
-        <p className="text-text-secondary mt-1">Configure download limits and behavior</p>
+        <h2 className="text-2xl font-heading font-bold text-nb-foreground">App Settings</h2>
+        <p className="text-nb-muted mt-1 font-heading">Configure download limits and behavior</p>
       </motion.div>
 
       <form onSubmit={save} className="space-y-5">
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="card p-6">
-          <div className="flex items-center gap-3 mb-5">
-            <div className="w-10 h-10 rounded-xl bg-spotify-green/10 flex items-center justify-center"><Download size={18} className="text-spotify-green" /></div>
-            <h3 className="font-bold text-text-primary">Batch Download</h3>
-          </div>
-          <label className="block text-sm text-text-secondary mb-2">Batch Limit (max tracks per download)</label>
-          <input type="number" value={config.batch_limit} onChange={e => setConfig({ ...config, batch_limit: parseInt(e.target.value) || 50 })} className="input" min={1} max={500} />
-          <p className="text-xs text-text-muted mt-2">How many tracks a user can download at once. Default: 500</p>
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-nb bg-nb-main/20 border-2 border-nb-border flex items-center justify-center">
+                  <Download size={18} className="text-nb-main" />
+                </div>
+                <CardTitle>Batch Download</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <Label>Batch Limit (max tracks per download)</Label>
+              <Input type="number" value={config.batch_limit} onChange={e => setConfig({ ...config, batch_limit: parseInt(e.target.value) || 50 })} min={1} max={500} />
+              <p className="text-xs text-nb-muted2 font-heading">How many tracks a user can download at once. Default: 500</p>
+            </CardContent>
+          </Card>
         </motion.div>
 
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="card p-6">
-          <div className="flex items-center gap-3 mb-5">
-            <div className="w-10 h-10 rounded-xl bg-spotify-green/10 flex items-center justify-center"><Sliders size={18} className="text-spotify-green" /></div>
-            <h3 className="font-bold text-text-primary">Concurrency</h3>
-          </div>
-          <label className="block text-sm text-text-secondary mb-2">Max Concurrent Downloads</label>
-          <input type="number" value={config.max_concurrent_downloads} onChange={e => setConfig({ ...config, max_concurrent_downloads: parseInt(e.target.value) || 5 })} className="input" min={1} max={20} />
-          <p className="text-xs text-text-muted mt-2">How many tracks download simultaneously per batch. Default: 5</p>
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-nb bg-nb-main/20 border-2 border-nb-border flex items-center justify-center">
+                  <Sliders size={18} className="text-nb-main" />
+                </div>
+                <CardTitle>Concurrency</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <Label>Max Concurrent Downloads</Label>
+              <Input type="number" value={config.max_concurrent_downloads} onChange={e => setConfig({ ...config, max_concurrent_downloads: parseInt(e.target.value) || 5 })} min={1} max={20} />
+              <p className="text-xs text-nb-muted2 font-heading">How many tracks download simultaneously per batch. Default: 5</p>
+            </CardContent>
+          </Card>
         </motion.div>
 
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }} className="card p-6">
-          <div className="flex items-center gap-3 mb-5">
-            <div className="w-10 h-10 rounded-xl bg-spotify-green/10 flex items-center justify-center"><Music size={18} className="text-spotify-green" /></div>
-            <h3 className="font-bold text-text-primary">Audio Format & Quality</h3>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm text-text-secondary mb-2">Default Format</label>
-              <select value={config.audio_format} onChange={e => setConfig({ ...config, audio_format: e.target.value })} className="input">
-                <option value="mp3">MP3 (best compatibility)</option>
-                <option value="flac">FLAC (lossless)</option>
-                <option value="m4a">M4A (AAC)</option>
-                <option value="opus">OPUS (small size)</option>
-                <option value="ogg">OGG Vorbis</option>
-                <option value="wav">WAV (uncompressed)</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm text-text-secondary mb-2">Default Bitrate</label>
-              <select value={config.bitrate} onChange={e => setConfig({ ...config, bitrate: e.target.value })} className="input">
-                <option value="disable">Original (No Convert)</option>
-                <option value="auto">Auto</option>
-                <option value="128k">128 kbps</option>
-                <option value="192k">192 kbps</option>
-                <option value="256k">256 kbps</option>
-                <option value="320k">320 kbps</option>
-              </select>
-            </div>
-          </div>
-          <p className="text-xs text-text-muted mt-2">Users can override these per-download. "Original" skips conversion for best quality.</p>
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }}>
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-nb bg-nb-main/20 border-2 border-nb-border flex items-center justify-center">
+                  <Music size={18} className="text-nb-main" />
+                </div>
+                <CardTitle>Audio Format & Quality</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Default Format</Label>
+                  <Select value={config.audio_format} onChange={e => setConfig({ ...config, audio_format: e.target.value })}>
+                    <option value="mp3">MP3 (best compatibility)</option>
+                    <option value="flac">FLAC (lossless)</option>
+                    <option value="m4a">M4A (AAC)</option>
+                    <option value="opus">OPUS (small size)</option>
+                    <option value="ogg">OGG Vorbis</option>
+                    <option value="wav">WAV (uncompressed)</option>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Default Bitrate</Label>
+                  <Select value={config.bitrate} onChange={e => setConfig({ ...config, bitrate: e.target.value })}>
+                    <option value="disable">Original (No Convert)</option>
+                    <option value="auto">Auto</option>
+                    <option value="128k">128 kbps</option>
+                    <option value="192k">192 kbps</option>
+                    <option value="256k">256 kbps</option>
+                    <option value="320k">320 kbps</option>
+                  </Select>
+                </div>
+              </div>
+              <p className="text-xs text-nb-muted2 font-heading">Users can override these per-download. "Original" skips conversion for best quality.</p>
+            </CardContent>
+          </Card>
         </motion.div>
 
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="card p-6">
-          <div className="flex items-center gap-3 mb-5">
-            <div className="w-10 h-10 rounded-xl bg-spotify-green/10 flex items-center justify-center"><Shield size={18} className="text-spotify-green" /></div>
-            <h3 className="font-bold text-text-primary">User Registration</h3>
-          </div>
-          <label className="flex items-center gap-3 cursor-pointer select-none">
-            <input type="checkbox" checked={config.require_approval} onChange={e => setConfig({ ...config, require_approval: e.target.checked })} className="w-5 h-5 accent-spotify-green rounded" />
-            <div>
-              <p className="text-sm text-text-primary">Require admin approval for new registrations</p>
-              <p className="text-xs text-text-muted mt-0.5">New users must be approved before they can login</p>
-            </div>
-          </label>
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-nb bg-nb-main/20 border-2 border-nb-border flex items-center justify-center">
+                  <Shield size={18} className="text-nb-main" />
+                </div>
+                <CardTitle>User Registration</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <label className="flex items-center gap-3 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={config.require_approval}
+                  onChange={e => setConfig({ ...config, require_approval: e.target.checked })}
+                  className="w-5 h-5 accent-nb-main rounded"
+                />
+                <div>
+                  <p className="text-sm font-heading font-semibold text-nb-foreground">Require admin approval for new registrations</p>
+                  <p className="text-xs text-nb-muted2 mt-0.5">New users must be approved before they can login</p>
+                </div>
+              </label>
+            </CardContent>
+          </Card>
         </motion.div>
 
-        <motion.button type="submit" disabled={saving} whileTap={{ scale: 0.97 }} className="btn-primary py-3 px-6 text-base">
+        <Button type="submit" disabled={saving} className="py-3 px-6 text-base">
           {saving ? <Loader2 size={18} className="animate-spin-slow" /> : <><Save size={18} /> Save Settings</>}
-        </motion.button>
+        </Button>
       </form>
     </div>
   )

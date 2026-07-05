@@ -4,7 +4,12 @@ import { useToast } from '../lib/toast'
 import { api } from '../lib/api'
 import { formatDuration, timeAgo } from '../lib/utils'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Search, Play, Pause, Download, Music, ExternalLink, Check, Loader2, Trash2, X, ChevronRight, XCircle } from 'lucide-react'
+import { Search, Play, Pause, Download, Music, ExternalLink, Check, Loader2, Trash2, X, XCircle } from 'lucide-react'
+import { Button } from '../components/ui/Button'
+import { Input } from '../components/ui/Input'
+import { Badge } from '../components/ui/Badge'
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
+import { Select } from '../components/ui/Select'
 
 export default function DashboardPage() {
   const { user } = useAuth()
@@ -207,56 +212,53 @@ export default function DashboardPage() {
     <div className="space-y-6">
       {/* Welcome */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-        <h2 className="text-2xl font-bold text-text-primary">Welcome back, {user?.username}</h2>
-        <p className="text-text-secondary mt-1">Paste a Spotify link to download tracks, albums, or playlists</p>
+        <h2 className="text-2xl font-heading font-bold text-nb-foreground">Welcome back, {user?.username}</h2>
+        <p className="text-nb-muted mt-1 font-heading">Paste a Spotify link to download tracks, albums, or playlists</p>
       </motion.div>
 
       {/* Search */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
-        <div className="card p-6">
-          <div className="flex gap-3">
-            <input
-              type="url"
-              value={url}
-              onChange={e => setUrl(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleSearch()}
-              className="input flex-1"
-              placeholder="https://open.spotify.com/track/... or /album/... or /playlist/..."
-            />
-            <motion.button
-              onClick={handleSearch}
-              disabled={loading || !url.trim()}
-              whileTap={{ scale: 0.97 }}
-              className="btn-primary px-6"
-            >
-              {loading ? <Loader2 size={18} className="animate-spin-slow" /> : <><Search size={18} /> Search</>}
-            </motion.button>
-          </div>
-          <div className="flex gap-4 mt-4">
-            <div className="flex items-center gap-2">
-              <label className="text-xs text-text-muted font-medium uppercase tracking-wider">Format</label>
-              <select value={audioFormat} onChange={e => setAudioFormat(e.target.value)} className="input py-1.5 px-3 text-sm">
-                <option value="mp3">MP3</option>
-                <option value="flac">FLAC</option>
-                <option value="m4a">M4A</option>
-                <option value="opus">OPUS</option>
-                <option value="ogg">OGG</option>
-                <option value="wav">WAV</option>
-              </select>
+        <Card>
+          <CardContent>
+            <div className="flex gap-3">
+              <Input
+                type="url"
+                value={url}
+                onChange={e => setUrl(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleSearch()}
+                className="flex-1"
+                placeholder="https://open.spotify.com/track/... or /album/... or /playlist/..."
+              />
+              <Button onClick={handleSearch} disabled={loading || !url.trim()}>
+                {loading ? <Loader2 size={18} className="animate-spin-slow" /> : <><Search size={18} /> Search</>}
+              </Button>
             </div>
-            <div className="flex items-center gap-2">
-              <label className="text-xs text-text-muted font-medium uppercase tracking-wider">Bitrate</label>
-              <select value={bitrate} onChange={e => setBitrate(e.target.value)} className="input py-1.5 px-3 text-sm">
-                <option value="disable">Original (No Convert)</option>
-                <option value="auto">Auto</option>
-                <option value="128k">128 kbps</option>
-                <option value="192k">192 kbps</option>
-                <option value="256k">256 kbps</option>
-                <option value="320k">320 kbps</option>
-              </select>
+            <div className="flex gap-4 mt-4">
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-nb-muted2 font-heading font-semibold uppercase tracking-wider">Format</label>
+                <Select value={audioFormat} onChange={e => setAudioFormat(e.target.value)} className="w-auto py-1.5 px-3 text-sm">
+                  <option value="mp3">MP3</option>
+                  <option value="flac">FLAC</option>
+                  <option value="m4a">M4A</option>
+                  <option value="opus">OPUS</option>
+                  <option value="ogg">OGG</option>
+                  <option value="wav">WAV</option>
+                </Select>
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-nb-muted2 font-heading font-semibold uppercase tracking-wider">Bitrate</label>
+                <Select value={bitrate} onChange={e => setBitrate(e.target.value)} className="w-auto py-1.5 px-3 text-sm">
+                  <option value="disable">Original (No Convert)</option>
+                  <option value="auto">Auto</option>
+                  <option value="128k">128 kbps</option>
+                  <option value="192k">192 kbps</option>
+                  <option value="256k">256 kbps</option>
+                  <option value="320k">320 kbps</option>
+                </Select>
+              </div>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       </motion.div>
 
       {/* Preview */}
@@ -281,18 +283,20 @@ export default function DashboardPage() {
 
       {/* Downloads */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-        <div className="card">
-          <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between">
-            <h3 className="font-bold text-text-primary">Recent Downloads</h3>
-            {downloads.length > 0 && (
-              <span className="badge-gray">{downloads.length}</span>
-            )}
-          </div>
-          <div className="divide-y divide-white/5">
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>Recent Downloads</CardTitle>
+              {downloads.length > 0 && (
+                <Badge variant="neutral">{downloads.length}</Badge>
+              )}
+            </div>
+          </CardHeader>
+          <div className="divide-y-2 divide-nb-border">
             {downloads.length === 0 && !downloadsLoading && (
               <div className="py-16 text-center">
-                <Music size={40} className="mx-auto text-text-muted mb-3 opacity-30" />
-                <p className="text-text-muted">No downloads yet</p>
+                <Music size={40} className="mx-auto text-nb-muted2 mb-3" />
+                <p className="text-nb-muted font-heading font-semibold">No downloads yet</p>
               </div>
             )}
             {downloads.map(d => (
@@ -300,13 +304,13 @@ export default function DashboardPage() {
             ))}
             {hasMore && (
               <div className="py-3 text-center">
-                <button onClick={() => loadDownloads(page + 1, true)} className="btn-ghost btn-sm text-spotify-green">
+                <Button variant="ghost" size="sm" onClick={() => loadDownloads(page + 1, true)} className="text-nb-main">
                   Load more
-                </button>
+                </Button>
               </div>
             )}
           </div>
-        </div>
+        </Card>
       </motion.div>
     </div>
   )
@@ -314,40 +318,42 @@ export default function DashboardPage() {
 
 function TrackPreview({ data, onDownload, playingId, togglePreview, audioFormat, bitrate }) {
   return (
-    <div className="card overflow-hidden">
-      <div className="flex flex-col sm:flex-row items-center gap-5 p-6">
-        {data.image_url && (
-          <img src={data.image_url} className="w-28 h-28 rounded-xl object-cover shadow-xl flex-shrink-0" alt="" />
+    <Card>
+      <CardContent>
+        <div className="flex flex-col sm:flex-row items-center gap-5">
+          {data.image_url && (
+            <img src={data.image_url} className="w-28 h-28 rounded-nb object-cover border-2 border-nb-border shadow-nb flex-shrink-0" alt="" />
+          )}
+          <div className="flex-1 min-w-0 text-center sm:text-left">
+            <Badge className="mb-2">Track</Badge>
+            <h3 className="text-xl font-heading font-bold text-nb-foreground truncate">{data.name}</h3>
+            <p className="text-nb-muted mt-0.5 font-heading">{data.artist}</p>
+            {data.duration_ms > 0 && (
+              <p className="text-nb-muted2 text-sm mt-1 font-heading">{formatDuration(data.duration_ms)}</p>
+            )}
+            <p className="text-nb-muted2 text-xs mt-1 font-heading">Format: {audioFormat.toUpperCase()} | Bitrate: {bitrate === 'disable' ? 'Original' : bitrate === 'auto' ? 'Auto' : bitrate} | Est: {data.estimated_size_mb ? `~${data.estimated_size_mb} MB` : '...'}</p>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {data.preview_url && (
+              <Button variant="ghost" size="sm" onClick={() => togglePreview('track', data.preview_url)}>
+                {playingId === 'track' ? <Pause size={16} /> : <Play size={16} />}
+                {playingId === 'track' ? 'Pause' : 'Preview'}
+              </Button>
+            )}
+            <Button onClick={() => onDownload(data)}>
+              <Download size={16} /> Download {audioFormat.toUpperCase()}
+            </Button>
+          </div>
+        </div>
+        {data.url && (
+          <div className="mt-4">
+            <a href={data.url} target="_blank" rel="noopener noreferrer" className="text-xs text-nb-muted2 hover:text-nb-foreground inline-flex items-center gap-1 transition-colors font-heading">
+              Open in Spotify <ExternalLink size={12} />
+            </a>
+          </div>
         )}
-        <div className="flex-1 min-w-0 text-center sm:text-left">
-          <p className="text-xs uppercase tracking-wider text-spotify-green font-medium mb-1">Track</p>
-          <h3 className="text-xl font-bold text-text-primary truncate">{data.name}</h3>
-          <p className="text-text-secondary mt-0.5">{data.artist}</p>
-          {data.duration_ms > 0 && (
-            <p className="text-text-muted text-sm mt-1">{formatDuration(data.duration_ms)}</p>
-          )}
-          <p className="text-text-muted text-xs mt-1">Format: {audioFormat.toUpperCase()} | Bitrate: {bitrate === 'disable' ? 'Original' : bitrate === 'auto' ? 'Auto' : bitrate} | Est: {data.estimated_size_mb ? `~${data.estimated_size_mb} MB` : '...'}</p>
-        </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
-          {data.preview_url && (
-            <button onClick={() => togglePreview('track', data.preview_url)} className="btn-ghost btn-sm">
-              {playingId === 'track' ? <Pause size={16} /> : <Play size={16} />}
-              {playingId === 'track' ? 'Pause' : 'Preview'}
-            </button>
-          )}
-          <motion.button onClick={() => onDownload(data)} whileTap={{ scale: 0.95 }} className="btn-primary">
-            <Download size={16} /> Download {audioFormat.toUpperCase()}
-          </motion.button>
-        </div>
-      </div>
-      {data.url && (
-        <div className="px-6 pb-4">
-          <a href={data.url} target="_blank" rel="noopener noreferrer" className="text-xs text-text-muted hover:text-text-secondary inline-flex items-center gap-1 transition-colors">
-            Open in Spotify <ExternalLink size={12} />
-          </a>
-        </div>
-      )}
-    </div>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -375,165 +381,160 @@ function PlaylistPreview({ data, onDownload, onBatch, playingId, togglePreview, 
   const typeLabel = data.type === 'album' ? 'Album' : 'Playlist'
 
   return (
-    <div className="card overflow-hidden">
+    <Card>
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-center gap-5 p-6 border-b border-white/5">
-        {data.image_url && (
-          <img src={data.image_url} className="w-24 h-24 rounded-xl object-cover shadow-xl flex-shrink-0" alt="" />
-        )}
-        <div className="flex-1 min-w-0 text-center sm:text-left">
-          <p className="text-xs uppercase tracking-wider text-spotify-green font-medium mb-1">{typeLabel}</p>
-          <h3 className="text-xl font-bold text-text-primary truncate">{data.name}</h3>
-          <p className="text-text-secondary text-sm mt-0.5">
-            {tracks.length} tracks
-            {tracks.length > limit && <span className="text-amber-400 ml-2">(limit: {limit})</span>}
-            <span className="text-text-muted ml-2">| {audioFormat.toUpperCase()} / {bitrate === 'disable' ? 'Original' : bitrate}</span>
-            {data.estimated_size_mb > 0 && <span className="text-text-muted ml-2">| ~{data.estimated_size_mb} MB total</span>}
-          </p>
+      <CardHeader>
+        <div className="flex flex-col sm:flex-row items-center gap-5">
+          {data.image_url && (
+            <img src={data.image_url} className="w-24 h-24 rounded-nb object-cover border-2 border-nb-border shadow-nb flex-shrink-0" alt="" />
+          )}
+          <div className="flex-1 min-w-0 text-center sm:text-left">
+            <Badge className="mb-2">{typeLabel}</Badge>
+            <h3 className="text-xl font-heading font-bold text-nb-foreground truncate">{data.name}</h3>
+            <p className="text-nb-muted text-sm mt-0.5 font-heading">
+              {tracks.length} tracks
+              {tracks.length > limit && <span className="text-nb-warning ml-2">(limit: {limit})</span>}
+              <span className="text-nb-muted2 ml-2">| {audioFormat.toUpperCase()} / {bitrate === 'disable' ? 'Original' : bitrate}</span>
+              {data.estimated_size_mb > 0 && <span className="text-nb-muted2 ml-2">| ~{data.estimated_size_mb} MB total</span>}
+            </p>
+          </div>
         </div>
-      </div>
+      </CardHeader>
 
       {/* Toolbar */}
-      <div className="px-6 py-3 border-b border-white/5 flex items-center gap-3 flex-wrap bg-surface-3/30">
-        <label className="flex items-center gap-2 cursor-pointer text-sm text-text-secondary select-none">
+      <div className="px-6 py-3 border-t-2 border-b-2 border-nb-border flex items-center gap-3 flex-wrap bg-nb-secondary">
+        <label className="flex items-center gap-2 cursor-pointer text-sm text-nb-muted font-heading font-semibold select-none">
           <input
             type="checkbox"
             checked={allSelected}
             ref={el => { if (el) el.indeterminate = someSelected }}
             onChange={toggleAll}
-            className="w-4 h-4 accent-spotify-green rounded"
+            className="w-4 h-4 accent-nb-main rounded"
           />
           Select all
         </label>
-        <span className="text-xs text-text-muted">{selected.size} selected</span>
+        <span className="text-xs text-nb-muted2 font-heading">{selected.size} selected</span>
         <div className="flex-1" />
-        <motion.button
-          whileTap={{ scale: 0.95 }}
+        <Button
+          size="sm"
           disabled={selected.size === 0}
           onClick={() => {
             const sel = [...selected].map(i => tracks[i])
             onBatch(sel, data.name, data.type)
           }}
-          className="btn-primary btn-sm"
         >
           <Download size={14} /> Download Selected ({audioFormat.toUpperCase()})
-        </motion.button>
-        <motion.button
-          whileTap={{ scale: 0.95 }}
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={() => onBatch(tracks.slice(0, limit), data.name, data.type)}
-          className="btn-ghost btn-sm"
         >
           Download All
-        </motion.button>
+        </Button>
       </div>
 
       {/* Tracks */}
-      <div className="max-h-[480px] overflow-y-auto">
+      <div className="max-h-[480px] overflow-y-auto divide-y divide-nb-border/50">
         {tracks.map((t, i) => (
           <div
             key={t.id || i}
-            className={`flex items-center gap-3 px-6 py-2.5 border-b border-white/3 transition-colors hover:bg-white/[0.02] ${selected.has(i) ? 'bg-spotify-green/[0.04]' : ''}`}
+            className={`flex items-center gap-3 px-6 py-2.5 transition-colors hover:bg-nb-secondary/50 ${selected.has(i) ? 'bg-nb-main/5' : ''}`}
           >
             <input
               type="checkbox"
               checked={selected.has(i)}
               onChange={() => toggle(i)}
-              className="w-4 h-4 accent-spotify-green rounded flex-shrink-0"
+              className="w-4 h-4 accent-nb-main rounded flex-shrink-0"
             />
-            <span className="w-7 text-right text-xs text-text-muted flex-shrink-0">{i + 1}</span>
-            {t.image_url && <img src={t.image_url} className="w-9 h-9 rounded object-cover flex-shrink-0" alt="" />}
+            <span className="w-7 text-right text-xs text-nb-muted2 font-heading flex-shrink-0">{i + 1}</span>
+            {t.image_url && <img src={t.image_url} className="w-9 h-9 rounded-nb object-cover border border-nb-border flex-shrink-0" alt="" />}
             <div className="flex-1 min-w-0">
-              <p className="text-sm text-text-primary truncate">{t.title}</p>
-              <p className="text-xs text-text-secondary truncate">{t.artist}</p>
+              <p className="text-sm font-heading font-semibold text-nb-foreground truncate">{t.title}</p>
+              <p className="text-xs text-nb-muted truncate">{t.artist}</p>
             </div>
-            <span className="text-xs text-text-muted flex-shrink-0">{formatDuration(t.duration_ms)}</span>
-            {t.estimated_size_mb > 0 && <span className="text-xs text-text-muted flex-shrink-0">~{t.estimated_size_mb}MB</span>}
+            <span className="text-xs text-nb-muted2 font-heading flex-shrink-0">{formatDuration(t.duration_ms)}</span>
+            {t.estimated_size_mb > 0 && <span className="text-xs text-nb-muted2 font-heading flex-shrink-0">~{t.estimated_size_mb}MB</span>}
             {t.preview_url && (
-              <button onClick={() => togglePreview(`pl-${i}`, t.preview_url)} className="p-1.5 rounded-lg hover:bg-white/5 text-text-muted hover:text-text-primary transition-colors flex-shrink-0">
+              <Button variant="ghost" size="icon-sm" onClick={() => togglePreview(`pl-${i}`, t.preview_url)}>
                 {playingId === `pl-${i}` ? <Pause size={14} /> : <Play size={14} />}
-              </button>
+              </Button>
             )}
-            <button onClick={() => onDownload(t)} className="p-1.5 rounded-lg hover:bg-white/5 text-text-muted hover:text-spotify-green transition-colors flex-shrink-0">
+            <Button variant="ghost" size="icon-sm" onClick={() => onDownload(t)}>
               <Download size={14} />
-            </button>
+            </Button>
           </div>
         ))}
       </div>
-    </div>
+    </Card>
   )
 }
 
 function DownloadItem({ data, onDelete, onCancel }) {
   const [confirming, setConfirming] = useState(false)
 
-  const statusColors = {
-    pending: 'badge-yellow',
-    processing: 'badge-blue',
-    searching: 'badge-blue',
-    completed: 'badge-green',
-    failed: 'badge-red',
-    cancelled: 'badge-gray',
+  const statusConfig = {
+    pending: { badge: 'warning', label: 'Queued' },
+    processing: { badge: 'info', label: 'Processing...' },
+    searching: { badge: 'info', label: `Searching ${data.source || ''}...` },
+    completed: { badge: 'default', label: 'Completed' },
+    failed: { badge: 'danger', label: 'Failed' },
+    cancelled: { badge: 'muted', label: 'Cancelled' },
   }
 
-  const statusLabels = {
-    pending: 'Queued',
-    processing: 'Processing...',
-    searching: `Searching ${data.source || ''}...`,
-    completed: 'Completed',
-    failed: 'Failed',
-    cancelled: 'Cancelled',
-  }
-
+  const config = statusConfig[data.status] || statusConfig.muted
   const isActive = data.status === 'pending' || data.status === 'processing' || data.status === 'searching'
 
   return (
-    <div className="flex items-center gap-4 px-6 py-3 hover:bg-white/[0.02] transition-colors group">
+    <div className="flex items-center gap-4 px-6 py-3 hover:bg-nb-secondary/30 transition-colors group">
       {data.image_url ? (
-        <img src={data.image_url} className="w-11 h-11 rounded-lg object-cover flex-shrink-0" alt="" />
+        <img src={data.image_url} className="w-11 h-11 rounded-nb object-cover border-2 border-nb-border flex-shrink-0" alt="" />
       ) : (
-        <div className="w-11 h-11 rounded-lg bg-surface-4 flex items-center justify-center flex-shrink-0">
-          <Music size={18} className="text-text-muted" />
+        <div className="w-11 h-11 rounded-nb bg-nb-secondary border-2 border-nb-border flex items-center justify-center flex-shrink-0">
+          <Music size={18} className="text-nb-muted" />
         </div>
       )}
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-text-primary truncate">{data.title || 'Processing...'}</p>
-        <p className="text-xs text-text-secondary truncate">{data.artist}</p>
-        <p className="text-[11px] text-text-muted mt-0.5">{timeAgo(data.created_at)}</p>
+        <p className="text-sm font-heading font-semibold text-nb-foreground truncate">{data.title || 'Processing...'}</p>
+        <p className="text-xs text-nb-muted truncate">{data.artist}</p>
+        <p className="text-[11px] text-nb-muted2 mt-0.5 font-heading">{timeAgo(data.created_at)}</p>
       </div>
       <div className="flex items-center gap-2 flex-shrink-0">
         {data.status === 'completed' && data.filename ? (
           <>
-            <a href={`/api/download/file/${data.id}`} className="btn-primary btn-sm">
-              <Download size={14} /> {data.filename?.split('.').pop()?.toUpperCase() || 'File'}
+            <a href={`/api/download/file/${data.id}`}>
+              <Button size="sm"><Download size={14} /> {data.filename?.split('.').pop()?.toUpperCase() || 'File'}</Button>
             </a>
             {confirming ? (
               <div className="flex items-center gap-1">
-                <button onClick={() => onDelete(data.id)} className="btn-danger btn-sm !px-2"><Check size={14} /></button>
-                <button onClick={() => setConfirming(false)} className="btn-ghost btn-sm !px-2"><X size={14} /></button>
+                <Button variant="danger" size="icon-sm" onClick={() => onDelete(data.id)}><Check size={14} /></Button>
+                <Button variant="ghost" size="icon-sm" onClick={() => setConfirming(false)}><X size={14} /></Button>
               </div>
             ) : (
-              <button onClick={() => setConfirming(true)} className="btn-ghost btn-sm !px-2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <Button variant="ghost" size="icon-sm" onClick={() => setConfirming(true)} className="opacity-0 group-hover:opacity-100 transition-opacity">
                 <Trash2 size={14} />
-              </button>
+              </Button>
             )}
           </>
         ) : data.status === 'cancelled' ? (
-          <span className="badge-gray">Cancelled</span>
+          <Badge variant="muted">Cancelled</Badge>
         ) : data.status === 'failed' ? (
-          <span className="badge-red">Failed</span>
+          <Badge variant="danger">Failed</Badge>
         ) : (
           <>
-            <span className={`${statusColors[data.status] || 'badge-gray'} flex items-center gap-1.5`}>
+            <Badge variant={config.badge} className="flex items-center gap-1.5">
               {isActive && <Loader2 size={12} className="animate-spin-slow" />}
-              {statusLabels[data.status] || data.status}
-            </span>
-            <button
+              {config.label}
+            </Badge>
+            <Button
+              variant="ghost"
+              size="icon-sm"
               onClick={() => onCancel(data.id)}
-              className="p-1.5 rounded-lg hover:bg-red-500/10 text-text-muted hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
+              className="text-nb-muted2 hover:text-nb-danger opacity-0 group-hover:opacity-100"
               title="Cancel download"
             >
               <XCircle size={14} />
-            </button>
+            </Button>
           </>
         )}
       </div>

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Download, CheckCircle, XCircle, ChevronDown, ChevronUp, Loader2, X } from 'lucide-react'
+import { cn } from '../lib/utils'
 
 export default function DownloadToast() {
   const [items, setItems] = useState([])
@@ -103,19 +104,19 @@ export default function DownloadToast() {
     <div className="fixed bottom-4 left-4 z-[90] w-80 max-w-[calc(100vw-2rem)]">
       <motion.div
         layout
-        className="glass rounded-2xl shadow-2xl border border-white/5 overflow-hidden"
+        className="bg-nb-surface border-2 border-nb-border rounded-nb shadow-nb-lg overflow-hidden"
       >
         <button
           onClick={() => setExpanded(!expanded)}
-          className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/5 transition-colors"
+          className="w-full flex items-center justify-between px-4 py-3 bg-nb-secondary hover:bg-nb-surface2 transition-colors"
         >
           <div className="flex items-center gap-3">
             {processing.length > 0 ? (
-              <Loader2 size={16} className="text-spotify-green animate-spin-slow" />
+              <Loader2 size={16} className="text-nb-main animate-spin-slow" />
             ) : (
-              <Download size={16} className="text-text-muted" />
+              <Download size={16} className="text-nb-muted" />
             )}
-            <span className="text-sm font-medium text-text-primary">
+            <span className="text-sm font-heading font-semibold text-nb-foreground">
               {processing.length > 0
                 ? `Downloading ${processing.length} track${processing.length > 1 ? 's' : ''}...`
                 : `${items.length} recent download${items.length > 1 ? 's' : ''}`
@@ -124,9 +125,9 @@ export default function DownloadToast() {
           </div>
           <div className="flex items-center gap-2">
             {processing.length > 0 && (
-              <span className="w-2 h-2 rounded-full bg-spotify-green animate-pulse" />
+              <span className="w-2 h-2 rounded-full bg-nb-main animate-pulse" />
             )}
-            {expanded ? <ChevronDown size={14} className="text-text-muted" /> : <ChevronUp size={14} className="text-text-muted" />}
+            {expanded ? <ChevronDown size={14} className="text-nb-muted" /> : <ChevronUp size={14} className="text-nb-muted" />}
           </div>
         </button>
 
@@ -148,34 +149,34 @@ export default function DownloadToast() {
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: 20 }}
-                      className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-white/5 transition-colors group/item"
+                      className="flex items-center gap-3 px-3 py-2 rounded-nb hover:bg-nb-secondary transition-colors group/item"
                     >
                       {item.status === 'completed' ? (
-                        <CheckCircle size={14} className="text-spotify-green flex-shrink-0" />
+                        <CheckCircle size={14} className="text-nb-main flex-shrink-0" />
                       ) : item.status === 'failed' ? (
-                        <XCircle size={14} className="text-red-400 flex-shrink-0" />
+                        <XCircle size={14} className="text-nb-danger flex-shrink-0" />
                       ) : item.status === 'cancelled' ? (
-                        <XCircle size={14} className="text-text-muted flex-shrink-0" />
+                        <XCircle size={14} className="text-nb-muted2 flex-shrink-0" />
                       ) : (
-                        <Loader2 size={14} className="text-spotify-green animate-spin-slow flex-shrink-0" />
+                        <Loader2 size={14} className="text-nb-main animate-spin-slow flex-shrink-0" />
                       )}
                       <div className="min-w-0 flex-1">
-                        <p className="text-xs text-text-primary truncate">{item.title || 'Unknown'}</p>
-                        <p className="text-[10px] text-text-muted truncate">{item.artist || ''}</p>
+                        <p className="text-xs font-heading font-semibold text-nb-foreground truncate">{item.title || 'Unknown'}</p>
+                        <p className="text-[10px] text-nb-muted2 truncate">{item.artist || ''}</p>
                       </div>
                       <div className="flex items-center gap-1 flex-shrink-0">
-                        <span className={`text-[10px] font-medium ${
-                          item.status === 'completed' ? 'text-spotify-green' :
-                          item.status === 'failed' ? 'text-red-400' :
-                          item.status === 'cancelled' ? 'text-text-muted' :
-                          'text-text-muted'
-                        }`}>
+                        <span className={cn(
+                          'text-[10px] font-heading font-semibold',
+                          item.status === 'completed' && 'text-nb-main',
+                          item.status === 'failed' && 'text-nb-danger',
+                          (item.status === 'cancelled' || (!['completed', 'failed'].includes(item.status))) && 'text-nb-muted2'
+                        )}>
                           {item.status === 'completed' ? 'Done' : item.status === 'failed' ? 'Failed' : item.status === 'cancelled' ? 'Cancelled' : item.source ? `Via ${item.source}` : '...'}
                         </span>
                         {isActive && (
                           <button
                             onClick={(e) => { e.stopPropagation(); handleCancel(item.id) }}
-                            className="p-0.5 rounded hover:bg-red-500/10 text-text-muted hover:text-red-400 transition-colors opacity-0 group-hover/item:opacity-100"
+                            className="p-0.5 rounded-nb border-2 border-transparent text-nb-muted2 hover:bg-nb-danger hover:text-white hover:border-nb-border transition-all opacity-0 group-hover/item:opacity-100"
                             title="Cancel"
                           >
                             <X size={12} />
