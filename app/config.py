@@ -17,7 +17,7 @@ DB_CONFIG = {
     'database': os.environ.get('DB_NAME', 'spotdl_db'),
     'autocommit': True,
     'pool_name': 'spotdl_pool',
-    'pool_size': 10,
+    'pool_size': 5,
     'pool_reset_session': True,
 }
 

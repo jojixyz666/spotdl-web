@@ -6,7 +6,7 @@ import signal
 import subprocess
 import time
 
-WORKERS = 5
+WORKERS = 20
 REDIS_URL = "redis://localhost:6379/0"
 QUEUE = "spotdl-downloads"
 
