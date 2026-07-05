@@ -12,6 +12,7 @@ import AdminSettingsPage from './pages/AdminSettingsPage'
 import NotFoundPage from './pages/NotFoundPage'
 import ForbiddenPage from './pages/ForbiddenPage'
 import ServerErrorPage from './pages/ServerErrorPage'
+import MaintenancePage from './pages/MaintenancePage'
 import DownloadToast from './components/DownloadToast'
 
 function ProtectedRoute({ children }) {
