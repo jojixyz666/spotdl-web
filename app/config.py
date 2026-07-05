@@ -31,6 +31,8 @@ BASE_DIR = '/opt/spotdl-web'
 DOWNLOAD_FOLDER = os.path.join(BASE_DIR, 'downloads')
 YTDLP_BIN = os.path.join(BASE_DIR, 'bin', 'yt-dlp')
 FFMPEG_BIN = '/usr/bin/ffmpeg'
+DENO_BIN = '/usr/local/bin/deno'
+POT_SERVER_URL = os.environ.get('POT_SERVER_URL', 'http://127.0.0.1:4416')
 APP_CONFIG_FILE = os.path.join(BASE_DIR, 'config.json')
 
 DEFAULT_APP_CONFIG = {

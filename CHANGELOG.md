@@ -1,5 +1,31 @@
 # Changelog
 
+## [2.6.0] - 2026-07-05
+
+### Added
+
+- **PO Token Server for YouTube**
+  - Installed `bgutil-ytdlp-pot-provider` for YouTube bot detection bypass
+  - Deno 2.9.1 installed for yt-dlp JS runtime support
+  - PO token server running on port 4416 (`spotdl-pot.service`)
+  - yt-dlp upgraded to v2026.07.04
+  - `web` player client added to YouTube search strategy
+
+- **Download Manager ZIP per Batch**
+  - Batches (playlists/albums) are now grouped in Download Manager
+  - Each batch shows progress bar with X/Y completed
+  - ZIP download button appears when all batch downloads complete
+  - Expand/collapse individual tracks within a batch
+  - `batch_complete` SSE event refreshes batch status immediately
+
+- **Batch-aware Downloads API**
+  - `/api/downloads` now returns `batch_id` and `collection_name` via JOIN with `url_history`
+
+### Fixed
+
+- **Download subprocess environment** - Added deno to PATH in `_run_cmd` for PO token script execution
+- **PO token server systemd service** - Auto-starts on boot, auto-restarts on failure
+
 ## [2.5.1] - 2026-07-05
 
 ### Fixed

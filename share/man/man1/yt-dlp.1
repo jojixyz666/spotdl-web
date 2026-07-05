@@ -158,7 +158,8 @@ Fully extract the videos of a playlist (default)
 .TP
 --live-from-start
 Download livestreams from the start.
-Currently experimental and only supported for YouTube, Twitch, and TVer
+Currently experimental and only supported for YouTube, Twitch, TVer, and
+mellow-fan
 .TP
 --no-live-from-start
 Download livestreams from the current time (default)
@@ -466,7 +467,7 @@ e.g.
 .TP
 --downloader \f[I][PROTO:]NAME\f[R]
 Name or path of the external downloader to use (optionally) prefixed by
-the protocols (http, ftp, m3u8, dash, rstp, rtmp, mms) to use it for.
+the protocols (http, ftp, m3u8, dash, rtmp) to use it for.
 Currently supports native, aria2c, axel, curl, ffmpeg, httpie, wget.
 You can use this option multiple times to set different downloaders for
 different protocols.
@@ -1412,7 +1413,7 @@ To use an encrypted \f[V].netrc\f[R] file stored as
 .IP
 .nf
 \f[C]
-yt-dlp --netrc-cmd \[aq]gpg --decrypt \[ti]/.authinfo.gpg\[aq] \[aq]https://www.youtube.com/watch?v=BaW_jenozKc\[aq]
+yt-dlp --netrc-cmd \[aq]gpg --decrypt \[ti]/.authinfo.gpg\[aq] \[aq]https://www.youtube.com/watch?v=YE7VzlLtp-4\[aq]
 \f[R]
 .fi
 .SS Notes about environment variables
@@ -1883,8 +1884,8 @@ Each aforementioned sequence when referenced in an output template will
 be replaced by the actual value corresponding to the sequence name.
 E.g.
 for \f[V]-o %(title)s-%(id)s.%(ext)s\f[R] and an mp4 video with title
-\f[V]yt-dlp test video\f[R] and id \f[V]BaW_jenozKc\f[R], this will
-result in a \f[V]yt-dlp test video-BaW_jenozKc.mp4\f[R] file created in
+\f[V]yt-dlp test video\f[R] and id \f[V]YE7VzlLtp-4\f[R], this will
+result in a \f[V]yt-dlp test video-YE7VzlLtp-4.mp4\f[R] file created in
 the current directory.
 .PP
 \f[B]Note\f[R]: Some of the sequences are not guaranteed to be present,
@@ -1921,14 +1922,14 @@ shorter title.
 .IP
 .nf
 \f[C]
-$ yt-dlp --print filename -o \[dq]test video.%(ext)s\[dq] BaW_jenozKc
+$ yt-dlp --print filename -o \[dq]test video.%(ext)s\[dq] ptd1NN40vMw
 test video.webm    # Literal name with correct extension
 
-$ yt-dlp --print filename -o \[dq]%(title)s.%(ext)s\[dq] BaW_jenozKc
-youtube-dl test video \[aq]\[aq]_ä↭𝕐.webm    # All kinds of weird characters
+$ yt-dlp --print filename -o \[dq]%(title)s.%(ext)s\[dq] ptd1NN40vMw
+To\[aq]y!🤯😂🤦🏻‍♂️.webm    # All kinds of weird characters
 
-$ yt-dlp --print filename -o \[dq]%(title)s.%(ext)s\[dq] BaW_jenozKc --restrict-filenames
-youtube-dl_test_video_.webm    # Restricted file name
+$ yt-dlp --print filename -o \[dq]%(title)s.%(ext)s\[dq] ptd1NN40vMw --restrict-filenames
+To_y.webm    # Restricted file name
 
 # Download YouTube playlist videos in separate directory indexed by video order in a playlist
 $ yt-dlp -o \[dq]%(playlist)s/%(playlist_index)s - %(title)s.%(ext)s\[dq] \[dq]https://www.youtube.com/playlist?list=PLwiyx1dc3P2JR9N8gQaQN_BCvlSlap7re\[dq]
@@ -1937,7 +1938,7 @@ $ yt-dlp -o \[dq]%(playlist)s/%(playlist_index)s - %(title)s.%(ext)s\[dq] \[dq]h
 $ yt-dlp -o \[dq]%(upload_date>%Y)s/%(title)s.%(ext)s\[dq] \[dq]https://www.youtube.com/playlist?list=PLwiyx1dc3P2JR9N8gQaQN_BCvlSlap7re\[dq]
 
 # Prefix playlist index with \[dq] - \[dq] separator, but only if it is available
-$ yt-dlp -o \[dq]%(playlist_index&{} - |)s%(title)s.%(ext)s\[dq] BaW_jenozKc \[dq]https://www.youtube.com/user/TheLinuxFoundation/playlists\[dq]
+$ yt-dlp -o \[dq]%(playlist_index&{} - |)s%(title)s.%(ext)s\[dq] YE7VzlLtp-4 \[dq]https://www.youtube.com/user/TheLinuxFoundation/playlists\[dq]
 
 # Download all playlists of YouTube channel/user keeping each playlist in separate directory:
 $ yt-dlp -o \[dq]%(uploader)s/%(playlist)s/%(playlist_index)s - %(title)s.%(ext)s\[dq] \[dq]https://www.youtube.com/user/TheLinuxFoundation/playlists\[dq]
@@ -1950,13 +1951,13 @@ $ yt-dlp -P \[dq]C:/MyVideos\[dq] -o \[dq]%(series)s/%(season_number)s - %(seaso
 
 # Download video as \[dq]C:\[rs]MyVideos\[rs]uploader\[rs]title.ext\[dq], subtitles as \[dq]C:\[rs]MyVideos\[rs]subs\[rs]uploader\[rs]title.ext\[dq]
 # and put all temporary files in \[dq]C:\[rs]MyVideos\[rs]tmp\[dq]
-$ yt-dlp -P \[dq]C:/MyVideos\[dq] -P \[dq]temp:tmp\[dq] -P \[dq]subtitle:subs\[dq] -o \[dq]%(uploader)s/%(title)s.%(ext)s\[dq] BaW_jenozKc --write-subs
+$ yt-dlp -P \[dq]C:/MyVideos\[dq] -P \[dq]temp:tmp\[dq] -P \[dq]subtitle:subs\[dq] -o \[dq]%(uploader)s/%(title)s.%(ext)s\[dq] YE7VzlLtp-4 --write-subs
 
 # Download video as \[dq]C:\[rs]MyVideos\[rs]uploader\[rs]title.ext\[dq] and subtitles as \[dq]C:\[rs]MyVideos\[rs]uploader\[rs]subs\[rs]title.ext\[dq]
-$ yt-dlp -P \[dq]C:/MyVideos\[dq] -o \[dq]%(uploader)s/%(title)s.%(ext)s\[dq] -o \[dq]subtitle:%(uploader)s/subs/%(title)s.%(ext)s\[dq] BaW_jenozKc --write-subs
+$ yt-dlp -P \[dq]C:/MyVideos\[dq] -o \[dq]%(uploader)s/%(title)s.%(ext)s\[dq] -o \[dq]subtitle:%(uploader)s/subs/%(title)s.%(ext)s\[dq] YE7VzlLtp-4 --write-subs
 
 # Stream the video being downloaded to stdout
-$ yt-dlp -o - BaW_jenozKc
+$ yt-dlp -o - YE7VzlLtp-4
 \f[R]
 .fi
 .SH FORMAT SELECTION
@@ -2177,10 +2178,9 @@ fields:
 \f[V]container\f[R]: Name of the container format
 .IP \[bu] 2
 \f[V]protocol\f[R]: The protocol that will be used for the actual
-download, lower-case (\f[V]http\f[R], \f[V]https\f[R], \f[V]rtsp\f[R],
-\f[V]rtmp\f[R], \f[V]rtmpe\f[R], \f[V]mms\f[R], \f[V]f4m\f[R],
-\f[V]ism\f[R], \f[V]http_dash_segments\f[R], \f[V]m3u8\f[R], or
-\f[V]m3u8_native\f[R])
+download, lower-case (\f[V]http\f[R], \f[V]https\f[R], \f[V]rtmp\f[R],
+\f[V]rtmpe\f[R], \f[V]f4m\f[R], \f[V]ism\f[R],
+\f[V]http_dash_segments\f[R], \f[V]m3u8\f[R], or \f[V]m3u8_native\f[R])
 .IP \[bu] 2
 \f[V]language\f[R]: Language code
 .IP \[bu] 2
@@ -2246,8 +2246,7 @@ original language preferred over audio description)
 \f[V]proto\f[R]: Protocol used for download
 (\f[V]https\f[R]/\f[V]ftps\f[R] > \f[V]http\f[R]/\f[V]ftp\f[R] >
 \f[V]m3u8_native\f[R]/\f[V]m3u8\f[R] > \f[V]http_dash_segments\f[R]>
-\f[V]websocket_frag\f[R] > \f[V]mms\f[R]/\f[V]rtsp\f[R] >
-\f[V]f4f\f[R]/\f[V]f4m\f[R])
+\f[V]websocket_frag\f[R] > \f[V]f4f\f[R]/\f[V]f4m\f[R])
 .IP \[bu] 2
 \f[V]vcodec\f[R]: Video Codec (\f[V]av01\f[R] > \f[V]vp9.2\f[R] >
 \f[V]vp9\f[R] > \f[V]h265\f[R] > \f[V]h264\f[R] > \f[V]vp8\f[R] >
@@ -2807,9 +2806,10 @@ maximum of 100 replies total
 \f[V]formats\f[R]: Change the types of formats to return.
 \f[V]dashy\f[R] (convert HTTP to DASH), \f[V]duplicate\f[R] (identical
 content but different URLs or protocol; includes \f[V]dashy\f[R]),
-\f[V]incomplete\f[R] (cannot be downloaded completely - live dash, live
-adaptive https, and post-live m3u8), \f[V]missing_pot\f[R] (include
-formats that require a PO Token but are missing one)
+\f[V]incomplete\f[R] (cannot be downloaded completely - live and
+post-live dash, post-live m3u8, and live adaptive https without
+--live-from-start), \f[V]missing_pot\f[R] (include formats that require
+a PO Token but are missing one)
 .IP \[bu] 2
 \f[V]innertube_host\f[R]: Innertube API host to use for all API
 requests; e.g.
@@ -2957,7 +2957,7 @@ GameJolt\[aq]s side)
 .IP \[bu] 2
 \f[V]app_id\f[R]: The value of the \f[V]X-IG-App-ID\f[R] header used for
 API requests.
-Default is the web app ID, \f[V]936619743392459\f[R]
+Can be the actual ID number, \f[V]ios\f[R], or \f[V]web\f[R] (default)
 .SS niconicochannelplus
 .IP \[bu] 2
 \f[V]max_comments\f[R]: Maximum number of comments to extract - default
@@ -3076,6 +3076,9 @@ older videos that still provide legacy formats
 \f[V]asc\f[R] (ascending, oldest first) or \f[V]desc\f[R] (descending,
 newest first).
 Default is \f[V]asc\f[R]
+.SS streaks
+.IP \[bu] 2
+\f[V]api_key\f[R]: API key for the \f[V]X-Streaks-Api-Key\f[R] header
 .SS tver
 .IP \[bu] 2
 \f[V]backend\f[R]: Backend API to use for extraction - one of
@@ -3099,6 +3102,13 @@ One of \f[V]always\f[R], \f[V]never\f[R], or \f[V]auto\f[R].
 The default \f[V]auto\f[R] policy tries to avoid exceeding the web
 client\[aq]s API rate-limit by only making an extra request when Vimeo
 publicizes the video\[aq]s downloadability
+.SS zan
+.IP \[bu] 2
+\f[V]split_angles\f[R]: Split multi-angle streams into separate angle
+formats.
+Forces re-encoding of the video stream during download, and requires
+ffmpeg.
+Either \f[V]true\f[R] or \f[V]false\f[R] (default)
 .PP
 \f[B]Note\f[R]: These options may be changed/removed in the future
 without concern for backward compatibility
@@ -3338,13 +3348,6 @@ Any external downloader that you want to use with \f[V]--downloader\f[R]
 \f[V]rtmp\f[R] streams.
 ffmpeg can be used instead with \f[V]--downloader ffmpeg\f[R].
 Licensed under GPLv2+ (http://rtmpdump.mplayerhq.hu)
-.IP \[bu] 2
-\f[B]mplayer\f[R] (http://mplayerhq.hu/design7/info.html) or
-\f[B]mpv\f[R] (https://mpv.io) - For downloading
-\f[V]rstp\f[R]/\f[V]mms\f[R] streams.
-ffmpeg can be used instead with \f[V]--downloader ffmpeg\f[R].
-Licensed under
-GPLv2+ (https://github.com/mpv-player/mpv/blob/master/Copyright)
 .PP
 To use or redistribute the dependencies, you must agree to their
 respective licensing terms.
@@ -3598,7 +3601,7 @@ like this:
 \f[C]
 from yt_dlp import YoutubeDL
 
-URLS = [\[aq]https://www.youtube.com/watch?v=BaW_jenozKc\[aq]]
+URLS = [\[aq]https://www.youtube.com/watch?v=YE7VzlLtp-4\[aq]]
 with YoutubeDL() as ydl:
     ydl.download(URLS)
 \f[R]
@@ -3627,7 +3630,7 @@ serializable dictionary, pass it through
 import json
 import yt_dlp
 
-URL = \[aq]https://www.youtube.com/watch?v=BaW_jenozKc\[aq]
+URL = \[aq]https://www.youtube.com/watch?v=YE7VzlLtp-4\[aq]
 
 # ℹ️ See help(yt_dlp.YoutubeDL) for a list of available options and public functions
 ydl_opts = {}
@@ -3659,7 +3662,7 @@ print(\[aq]Some videos failed to download\[aq] if error_code
 \f[C]
 import yt_dlp
 
-URLS = [\[aq]https://www.youtube.com/watch?v=BaW_jenozKc\[aq]]
+URLS = [\[aq]https://www.youtube.com/watch?v=YE7VzlLtp-4\[aq]]
 
 ydl_opts = {
     \[aq]format\[aq]: \[aq]m4a/bestaudio/best\[aq],
@@ -3680,7 +3683,7 @@ with yt_dlp.YoutubeDL(ydl_opts) as ydl:
 \f[C]
 import yt_dlp
 
-URLS = [\[aq]https://www.youtube.com/watch?v=BaW_jenozKc\[aq]]
+URLS = [\[aq]https://www.youtube.com/watch?v=YE7VzlLtp-4\[aq]]
 
 def longer_than_a_minute(info, *, incomplete):
     \[dq]\[dq]\[dq]Download only videos longer than a minute (or with unknown duration)\[dq]\[dq]\[dq]
@@ -3702,7 +3705,7 @@ with yt_dlp.YoutubeDL(ydl_opts) as ydl:
 \f[C]
 import yt_dlp
 
-URLS = [\[aq]https://www.youtube.com/watch?v=BaW_jenozKc\[aq]]
+URLS = [\[aq]https://www.youtube.com/watch?v=YE7VzlLtp-4\[aq]]
 
 class MyLogger:
     def debug(self, msg):
@@ -3744,7 +3747,7 @@ with yt_dlp.YoutubeDL(ydl_opts) as ydl:
 \f[C]
 import yt_dlp
 
-URLS = [\[aq]https://www.youtube.com/watch?v=BaW_jenozKc\[aq]]
+URLS = [\[aq]https://www.youtube.com/watch?v=YE7VzlLtp-4\[aq]]
 
 # ℹ️ See help(yt_dlp.postprocessor.PostProcessor)
 class MyCustomPP(yt_dlp.postprocessor.PostProcessor):
@@ -3765,7 +3768,7 @@ with yt_dlp.YoutubeDL() as ydl:
 \f[C]
 import yt_dlp
 
-URLS = [\[aq]https://www.youtube.com/watch?v=BaW_jenozKc\[aq]]
+URLS = [\[aq]https://www.youtube.com/watch?v=YE7VzlLtp-4\[aq]]
 
 def format_selector(ctx):
     \[dq]\[dq]\[dq] Select the best video and the best audio that won\[aq]t result in an mkv.

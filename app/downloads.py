@@ -16,7 +16,8 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
 from app.config import (
-    YTDLP_BIN, FFMPEG_BIN, DOWNLOAD_FOLDER, load_app_config
+    YTDLP_BIN, FFMPEG_BIN, DOWNLOAD_FOLDER, load_app_config,
+    DENO_BIN, POT_SERVER_URL
 )
 from app.models import get_db
 from app.utils import sanitize_filename
@@ -121,7 +122,9 @@ def run_download(download_id, spotify_url, user_id, title, artist, image_url, au
         return row and row['status'] == 'cancelled'
 
     def _run_cmd(cmd, timeout):
-        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        env = os.environ.copy()
+        env['PATH'] = f'/usr/local/bin:/usr/bin:/bin:/root/.deno/bin:{env.get("PATH", "")}'
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env)
         with active_processes_lock:
             active_processes[download_id] = proc
         try:
@@ -136,7 +139,7 @@ def run_download(download_id, spotify_url, user_id, title, artist, image_url, au
                 active_processes.pop(download_id, None)
 
     # Strategy 1: YouTube with multiple player clients and search variations
-    clients = ['web_creator', 'ios', 'mweb', 'tv']
+    clients = ['web', 'web_creator', 'ios', 'mweb', 'tv']
     search_queries = [
         f'ytsearch3:{artist} - {title}',
         f'ytsearch3:{artist} {title}',
@@ -331,7 +334,9 @@ def run_batch_download(download_id, spotify_url, user_id, title, artist, image_u
         return row and row['status'] == 'cancelled'
 
     def _run_cmd(cmd, timeout):
-        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        env = os.environ.copy()
+        env['PATH'] = f'/usr/local/bin:/usr/bin:/bin:/root/.deno/bin:{env.get("PATH", "")}'
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env)
         with active_processes_lock:
             active_processes[download_id] = proc
         try:
@@ -346,7 +351,7 @@ def run_batch_download(download_id, spotify_url, user_id, title, artist, image_u
                 active_processes.pop(download_id, None)
 
     # Strategy 1: YouTube with multiple search variations
-    clients = ['web_creator', 'ios', 'mweb', 'tv']
+    clients = ['web', 'web_creator', 'ios', 'mweb', 'tv']
     search_queries = [
         f'ytsearch3:{artist} - {title}',
         f'ytsearch3:{artist} {title}',
@@ -733,7 +738,10 @@ def register_download_routes(app, limiter):
         c = conn.cursor(dictionary=True)
         c.execute('SELECT COUNT(*) as cnt FROM downloads WHERE user_id = %s', (current_user.id,))
         total = c.fetchone()['cnt']
-        c.execute('SELECT * FROM downloads WHERE user_id = %s ORDER BY id DESC LIMIT %s OFFSET %s',
+        c.execute('''SELECT d.*, h.batch_id, h.collection_name
+                     FROM downloads d
+                     LEFT JOIN url_history h ON d.spotify_url = h.spotify_url AND h.user_id = d.user_id
+                     WHERE d.user_id = %s ORDER BY d.id DESC LIMIT %s OFFSET %s''',
                   (current_user.id, per_page, offset))
         downloads = c.fetchall()
         conn.close()
