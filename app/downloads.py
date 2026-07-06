@@ -49,18 +49,10 @@ def _is_preview_file(filepath, min_duration=35):
 
 
 def _find_file_in_dir(directory, safe_name, audio_format):
-    """Find downloaded file in directory with exact/prefix/recent matching."""
+    """Find downloaded file in directory by exact name match."""
     expected = f'{safe_name}.{audio_format}'
     if os.path.exists(os.path.join(directory, expected)):
         return expected
-    for f in os.listdir(directory):
-        if f.startswith(sanitize_filename(safe_name.split(' - ')[0])) and f.endswith(('.mp3', '.wav', '.flac', '.m4a', '.ogg', '.opus')):
-            return f
-    for f in os.listdir(directory):
-        if f.endswith(('.mp3', '.wav', '.flac', '.m4a', '.ogg', '.opus')):
-            fpath = os.path.join(directory, f)
-            if os.path.getmtime(fpath) > (datetime.now().timestamp() - 180):
-                return f
     return None
 
 
