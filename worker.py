@@ -96,7 +96,13 @@ def _embed_metadata(filepath, title, artist, image_url, audio_format='mp3'):
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
         if result.returncode == 0 and os.path.exists(tmp_out) and os.path.getsize(tmp_out) > 0:
-            shutil.move(tmp_out, filepath)
+            try:
+                os.replace(tmp_out, filepath)
+            except Exception:
+                # If replace fails (cross-device), use copy + delete
+                import shutil as _shutil
+                _shutil.copy2(tmp_out, filepath)
+                os.remove(tmp_out)
         else:
             if os.path.exists(tmp_out):
                 os.remove(tmp_out)
