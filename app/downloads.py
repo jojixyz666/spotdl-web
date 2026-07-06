@@ -56,6 +56,45 @@ def _find_file_in_dir(directory, safe_name, audio_format):
     return None
 
 
+def _find_file_globally(user_id, safe_name, audio_format, exclude_batch=None):
+    """Search for file across all user directories (user root + all batches).
+    Returns (found_filename, source_directory) or (None, None)."""
+    user_dir = os.path.join(DOWNLOAD_FOLDER, str(user_id))
+    if not os.path.exists(user_dir):
+        return None, None
+
+    expected = f'{safe_name}.{audio_format}'
+    extensions = ('.mp3', '.wav', '.flac', '.m4a', '.ogg', '.opus')
+
+    # 1) Check user root directory
+    root_path = os.path.join(user_dir, expected)
+    if os.path.exists(root_path):
+        return expected, user_dir
+
+    # 2) Search all batch directories
+    for entry in sorted(os.listdir(user_dir)):
+        if entry == '_zips' or not entry.startswith('batch_'):
+            continue
+        if exclude_batch and entry == f'batch_{exclude_batch}':
+            continue
+        batch_path = os.path.join(user_dir, entry)
+        if not os.path.isdir(batch_path):
+            continue
+        # Exact match
+        if os.path.exists(os.path.join(batch_path, expected)):
+            return expected, batch_path
+        # Fuzzy: match by title (last part after ' - ')
+        title_part = safe_name.split(' - ', 1)[1] if ' - ' in safe_name else ''
+        if title_part:
+            for f in os.listdir(batch_path):
+                if f.endswith(extensions) and title_part.lower() in f.lower():
+                    fpath = os.path.join(batch_path, f)
+                    if os.path.getsize(fpath) > 500000:  # >500KB = likely real song
+                        return f, batch_path
+
+    return None, None
+
+
 # ──────────────────────────────────────────────
 # Thread pool & semaphore
 # ──────────────────────────────────────────────

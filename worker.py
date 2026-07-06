@@ -149,9 +149,28 @@ def _do_download(download_id, spotify_url, user_id, title, artist, image_url, au
         conn.close()
         return row and row['status'] == 'cancelled'
 
-    # ── Check if file already exists on disk ──
-    from app.downloads import _find_file_in_dir, _is_preview_file
+    # ── Check if file already exists on disk (global cache) ──
+    from app.downloads import _find_file_in_dir, _find_file_globally, _is_preview_file
     existing = _find_file_in_dir(output_dir, safe_name, audio_format)
+    if not existing:
+        # Search across all user batches
+        found_name, found_dir = _find_file_globally(user_id, safe_name, audio_format)
+        if found_name and found_dir and found_dir != output_dir:
+            import shutil
+            src = os.path.join(found_dir, found_name)
+            dst = os.path.join(output_dir, safe_name + '.' + audio_format)
+            shutil.copy2(src, dst)
+            existing = safe_name + '.' + audio_format
+            is_short, duration = _is_preview_file(dst)
+            if not is_short:
+                conn = get_db()
+                c3 = conn.cursor()
+                c3.execute('UPDATE downloads SET status = %s, filename = %s, message = %s WHERE id = %s',
+                           ('completed', existing, f'Copied from cache ({int(duration)}s).', download_id))
+                conn.close()
+                return
+            else:
+                os.remove(dst)
     if existing:
         is_short, duration = _is_preview_file(os.path.join(output_dir, existing))
         if not is_short:
@@ -331,9 +350,29 @@ def _do_batch_download(download_id, spotify_url, user_id, title, artist, image_u
         conn.close()
         return row and row['status'] == 'cancelled'
 
-    # ── Check if file already exists on disk ──
-    from app.downloads import _find_file_in_dir, _is_preview_file
+    # ── Check if file already exists on disk (global cache) ──
+    from app.downloads import _find_file_in_dir, _find_file_globally, _is_preview_file
     existing = _find_file_in_dir(batch_dir, safe_name, audio_format)
+    if not existing:
+        # Search across all user batches and root directory
+        found_name, found_dir = _find_file_globally(user_id, safe_name, audio_format, exclude_batch=batch_id)
+        if found_name and found_dir and found_dir != batch_dir:
+            # Copy from cache to current batch
+            import shutil
+            src = os.path.join(found_dir, found_name)
+            dst = os.path.join(batch_dir, safe_name + '.' + audio_format)
+            shutil.copy2(src, dst)
+            existing = safe_name + '.' + audio_format
+            is_short, duration = _is_preview_file(dst)
+            if not is_short:
+                conn = get_db()
+                c3 = conn.cursor()
+                c3.execute('UPDATE downloads SET status = %s, filename = %s, message = %s WHERE id = %s',
+                           ('completed', existing, f'Copied from cache ({int(duration)}s).', download_id))
+                conn.close()
+                return
+            else:
+                os.remove(dst)
     if existing:
         is_short, duration = _is_preview_file(os.path.join(batch_dir, existing))
         if not is_short:
