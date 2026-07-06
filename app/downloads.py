@@ -96,9 +96,9 @@ def bounded_download(fn, *args):
 
 def _sc_search_best(artist, title, ytdlp_bin, timeout=30):
     """Search SoundCloud for best full track (not preview, not live/remix). Returns URL or None."""
-    skip_words = ['live', 'remix', 'cover', 'karaoke', 'acoustic', 'unplugged',
-                  'instrumental', 'slowed', 'sped', 'session', 'rehearsal',
-                  'bootleg', 'demo', 'raw', 'alternate version']
+    hard_skip = ['live', 'remix', 'cover', 'karaoke', 'acoustic', 'unplugged',
+                 'instrumental', 'session', 'rehearsal', 'bootleg', 'demo']
+    soft_skip = ['slowed', 'sped', 'nightcore', 'raw', 'alternate version']
     queries = [
         f'scsearch10:{artist} - {title}',
         f'scsearch10:{title} {artist}',
@@ -115,6 +115,7 @@ def _sc_search_best(artist, title, ytdlp_bin, timeout=30):
             if result.returncode != 0:
                 continue
             studio = []
+            modified = []
             all_valid = []
             for line in result.stdout.strip().split('\n'):
                 if not line.strip():
@@ -129,13 +130,19 @@ def _sc_search_best(artist, title, ytdlp_bin, timeout=30):
                         continue
                     if dur <= 35:
                         continue
-                    is_live = any(w in track_title for w in skip_words)
-                    all_valid.append((url, dur, is_live))
-                    if not is_live:
+                    is_hard = any(w in track_title for w in hard_skip)
+                    is_soft = any(w in track_title for w in soft_skip)
+                    all_valid.append((url, dur, is_hard, is_soft))
+                    if not is_hard and not is_soft:
                         studio.append((url, dur))
+                    elif not is_hard:
+                        modified.append((url, dur))
             if studio:
                 studio.sort(key=lambda x: x[1], reverse=True)
                 return studio[0][0]
+            if modified:
+                modified.sort(key=lambda x: x[1], reverse=True)
+                return modified[0][0]
             if all_valid:
                 all_valid.sort(key=lambda x: x[1], reverse=True)
                 return all_valid[0][0]
