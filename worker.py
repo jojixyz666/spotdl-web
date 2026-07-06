@@ -62,7 +62,10 @@ def _get_bitrate_args(bitrate):
 
 
 def _sc_search_best(artist, title, ytdlp_bin, timeout=30):
-    """Search SoundCloud for best full track (not preview). Returns URL or None."""
+    """Search SoundCloud for best full track (not preview, not live/remix). Returns URL or None."""
+    skip_words = ['live', 'remix', 'cover', 'karaoke', 'acoustic', 'unplugged',
+                  'instrumental', 'slowed', 'sped', 'session', 'rehearsal',
+                  'bootleg', 'demo', 'raw', 'alternate version']
     queries = [
         f'scsearch10:{artist} - {title}',
         f'scsearch10:{title} {artist}',
@@ -72,29 +75,39 @@ def _sc_search_best(artist, title, ytdlp_bin, timeout=30):
         try:
             cmd = [
                 ytdlp_bin, query,
-                '--flat-playlist', '--print', '%(url)s %(duration)s',
+                '--flat-playlist', '--print', '%(url)s %(duration)s %(title)s',
                 '--no-warnings', '--quiet',
             ]
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
             if result.returncode != 0:
                 continue
-            candidates = []
+            studio = []
+            all_valid = []
             for line in result.stdout.strip().split('\n'):
                 if not line.strip():
                     continue
-                parts = line.rsplit(' ', 1)
-                if len(parts) == 2:
-                    url, dur_str = parts
+                parts = line.rsplit(' ', 2)
+                if len(parts) >= 3:
+                    url, dur_str = parts[0], parts[1]
+                    track_title = parts[2].lower()
                     try:
                         dur = float(dur_str)
-                        candidates.append((url, dur))
                     except ValueError:
                         continue
-            # Pick longest track > 35 seconds
-            valid = [(u, d) for u, d in candidates if d > 35]
-            if valid:
-                valid.sort(key=lambda x: x[1], reverse=True)
-                return valid[0][0]
+                    if dur <= 35:
+                        continue
+                    is_live = any(w in track_title for w in skip_words)
+                    all_valid.append((url, dur, is_live))
+                    if not is_live:
+                        studio.append((url, dur))
+            # Prefer studio version, pick longest
+            if studio:
+                studio.sort(key=lambda x: x[1], reverse=True)
+                return studio[0][0]
+            # Fallback: pick longest even if live
+            if all_valid:
+                all_valid.sort(key=lambda x: x[1], reverse=True)
+                return all_valid[0][0]
         except Exception:
             continue
     return None
