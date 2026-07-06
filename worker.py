@@ -2,9 +2,11 @@ import os
 import sys
 import json
 import secrets
+import shutil
 import zipfile
 import subprocess
 import requests
+import tempfile
 from datetime import datetime
 
 sys.path.insert(0, '/opt/spotdl-web')
@@ -24,6 +26,92 @@ COOKIE_FILE = '/opt/spotdl-web/cookies.txt'
 USE_COOKIES = os.path.isfile(COOKIE_FILE)
 
 flask_app = create_app()
+
+
+def _embed_metadata(filepath, title, artist, image_url, audio_format='mp3'):
+    """Embed title, artist, and cover art into audio file using ffmpeg."""
+    if not os.path.exists(filepath):
+        return False
+
+    # Download cover art
+    cover_path = None
+    if image_url:
+        try:
+            r = requests.get(image_url, timeout=10)
+            if r.status_code == 200 and len(r.content) > 1000:
+                ext = 'jpg'
+                if 'png' in r.headers.get('content-type', ''):
+                    ext = 'png'
+                cover_path = os.path.join(tempfile.gettempdir(), f'cover_{secrets.token_hex(4)}.{ext}')
+                with open(cover_path, 'wb') as f:
+                    f.write(r.content)
+        except Exception:
+            pass
+
+    tmp_out = filepath + '.tmp.' + audio_format
+    cmd = [FFMPEG_BIN, '-y', '-i', filepath]
+
+    if cover_path:
+        cmd += ['-i', cover_path]
+
+    if audio_format == 'mp3':
+        if cover_path:
+            cmd += ['-map', '0:a', '-map', '1:0', '-c:v', 'mjpeg', '-vf', 'scale=640:640', '-disposition:v:0', 'attached_pic']
+        cmd += [
+            '-metadata', f'title={title}',
+            '-metadata', f'artist={artist}',
+            '-metadata', f'album={artist} - {title}',
+            '-metadata:s:v', 'album_artist=' + artist,
+            '-id3v2_version', '3',
+        ]
+    elif audio_format == 'flac':
+        if cover_path:
+            cmd += ['-map', '0:a', '-map', '1:0', '-c:v', 'copy', '-disposition:v:0', 'attached_pic']
+        cmd += [
+            '-metadata', f'TITLE={title}',
+            '-metadata', f'ARTIST={artist}',
+            '-metadata', f'ALBUM={artist} - {title}',
+        ]
+    elif audio_format == 'm4a':
+        cmd += ['-map', '0:a']
+        if cover_path:
+            cmd += ['-map', '1:0']
+        cmd += [
+            '-metadata', f'title={title}',
+            '-metadata', f'artist={artist}',
+            '-metadata', f'album={artist} - {title}',
+        ]
+        cmd += ['-c', 'copy']
+    else:
+        cmd += [
+            '-metadata', f'title={title}',
+            '-metadata', f'artist={artist}',
+            '-metadata', f'album={artist} - {title}',
+        ]
+        if cover_path:
+            cmd += ['-map', '0:a', '-map', '1:0', '-c', 'copy']
+
+    cmd.append(tmp_out)
+
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        if result.returncode == 0 and os.path.exists(tmp_out) and os.path.getsize(tmp_out) > 0:
+            shutil.move(tmp_out, filepath)
+        else:
+            if os.path.exists(tmp_out):
+                os.remove(tmp_out)
+    except Exception:
+        if os.path.exists(tmp_out):
+            os.remove(tmp_out)
+
+    # Cleanup temp cover
+    if cover_path and os.path.exists(cover_path):
+        try:
+            os.remove(cover_path)
+        except Exception:
+            pass
+
+    return True
 
 
 def rq_run_download(download_id, spotify_url, user_id, title, artist, image_url, audio_format=None, bitrate=None):
@@ -163,6 +251,7 @@ def _do_download(download_id, spotify_url, user_id, title, artist, image_url, au
             existing = safe_name + '.' + audio_format
             is_short, duration = _is_preview_file(dst)
             if not is_short:
+                _embed_metadata(dst, title, artist, image_url, audio_format)
                 conn = get_db()
                 c3 = conn.cursor()
                 c3.execute('UPDATE downloads SET status = %s, filename = %s, message = %s WHERE id = %s',
@@ -174,6 +263,7 @@ def _do_download(download_id, spotify_url, user_id, title, artist, image_url, au
     if existing:
         is_short, duration = _is_preview_file(os.path.join(output_dir, existing))
         if not is_short:
+            _embed_metadata(os.path.join(output_dir, existing), title, artist, image_url, audio_format)
             conn = get_db()
             c3 = conn.cursor()
             c3.execute('UPDATE downloads SET status = %s, filename = %s, message = %s WHERE id = %s',
@@ -203,6 +293,7 @@ def _do_download(download_id, spotify_url, user_id, title, artist, image_url, au
                     fpath = os.path.join(output_dir, found)
                     is_short, duration = _is_preview_file(fpath)
                     if not is_short:
+                        _embed_metadata(fpath, title, artist, image_url, audio_format)
                         conn = get_db()
                         c4 = conn.cursor()
                         c4.execute('UPDATE downloads SET status = %s, filename = %s, message = %s WHERE id = %s',
@@ -243,6 +334,7 @@ def _do_download(download_id, spotify_url, user_id, title, artist, image_url, au
                         fpath = os.path.join(output_dir, found)
                         is_short, duration = _is_preview_file(fpath)
                         if not is_short:
+                            _embed_metadata(fpath, title, artist, image_url, audio_format)
                             conn = get_db()
                             c6 = conn.cursor()
                             c6.execute('UPDATE downloads SET status = %s, filename = %s, message = %s WHERE id = %s',
@@ -281,6 +373,7 @@ def _do_download(download_id, spotify_url, user_id, title, artist, image_url, au
                     fpath = os.path.join(output_dir, found)
                     is_short, duration = _is_preview_file(fpath)
                     if not is_short:
+                        _embed_metadata(fpath, title, artist, image_url, audio_format)
                         conn = get_db()
                         c5 = conn.cursor()
                         c5.execute('UPDATE downloads SET status = %s, filename = %s, message = %s WHERE id = %s',
@@ -365,6 +458,7 @@ def _do_batch_download(download_id, spotify_url, user_id, title, artist, image_u
             existing = safe_name + '.' + audio_format
             is_short, duration = _is_preview_file(dst)
             if not is_short:
+                _embed_metadata(dst, title, artist, image_url, audio_format)
                 conn = get_db()
                 c3 = conn.cursor()
                 c3.execute('UPDATE downloads SET status = %s, filename = %s, message = %s WHERE id = %s',
@@ -376,6 +470,7 @@ def _do_batch_download(download_id, spotify_url, user_id, title, artist, image_u
     if existing:
         is_short, duration = _is_preview_file(os.path.join(batch_dir, existing))
         if not is_short:
+            _embed_metadata(os.path.join(batch_dir, existing), title, artist, image_url, audio_format)
             conn = get_db()
             c3 = conn.cursor()
             c3.execute('UPDATE downloads SET status = %s, filename = %s, message = %s WHERE id = %s',
@@ -405,6 +500,7 @@ def _do_batch_download(download_id, spotify_url, user_id, title, artist, image_u
                     fpath = os.path.join(batch_dir, found)
                     is_short, duration = _is_preview_file(fpath)
                     if not is_short:
+                        _embed_metadata(fpath, title, artist, image_url, audio_format)
                         conn = get_db()
                         c4 = conn.cursor()
                         c4.execute('UPDATE downloads SET status = %s, filename = %s, message = %s WHERE id = %s',
@@ -445,6 +541,7 @@ def _do_batch_download(download_id, spotify_url, user_id, title, artist, image_u
                         fpath = os.path.join(batch_dir, found)
                         is_short, duration = _is_preview_file(fpath)
                         if not is_short:
+                            _embed_metadata(fpath, title, artist, image_url, audio_format)
                             conn = get_db()
                             c6 = conn.cursor()
                             c6.execute('UPDATE downloads SET status = %s, filename = %s, message = %s WHERE id = %s',
@@ -483,6 +580,7 @@ def _do_batch_download(download_id, spotify_url, user_id, title, artist, image_u
                     fpath = os.path.join(batch_dir, found)
                     is_short, duration = _is_preview_file(fpath)
                     if not is_short:
+                        _embed_metadata(fpath, title, artist, image_url, audio_format)
                         conn = get_db()
                         c5 = conn.cursor()
                         c5.execute('UPDATE downloads SET status = %s, filename = %s, message = %s WHERE id = %s',
@@ -505,6 +603,7 @@ def _do_batch_download(download_id, spotify_url, user_id, title, artist, image_u
             if r.status_code == 200 and len(r.content) > 10000:
                 with open(final_output, 'wb') as f:
                     f.write(r.content)
+                _embed_metadata(final_output, title, artist, image_url, audio_format)
                 conn = get_db()
                 c7 = conn.cursor()
                 c7.execute('UPDATE downloads SET status = %s, filename = %s, message = %s WHERE id = %s',
