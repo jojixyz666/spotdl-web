@@ -12,3 +12,4 @@ include/
 share/
 pyvenv.cfg
 *.zip
+cookies.txt
